@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/client.dart';
 import '../models/user.dart';
 import '../models/campaign.dart';
+import '../models/campaign_detail.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -234,7 +235,7 @@ class ApiService {
     }
   }
 
-  /// Récupérer une campagne par ID
+  /// Récupérer une campagne par ID (simple)
   Future<Campaign> getCampaign(int id) async {
     try {
       final headers = await _getHeaders();
@@ -255,6 +256,31 @@ class ApiService {
       }
     } catch (e) {
       print('Erreur lors du chargement de la campagne: $e');
+      rethrow;
+    }
+  }
+  
+  /// Récupérer les détails complets d'une campagne (avec onglets et champs)
+  Future<CampaignDetail> getCampaignDetail(int id) async {
+    try {
+      final headers = await _getHeaders();
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/campagnes/$id'),
+        headers: headers,
+      );
+
+      // Vérifier l'authentification
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return CampaignDetail.fromJson(jsonData);
+      } else {
+        throw Exception('Campagne non trouvée');
+      }
+    } catch (e) {
+      print('Erreur lors du chargement des détails de la campagne: $e');
       rethrow;
     }
   }

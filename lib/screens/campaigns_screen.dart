@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/campaign.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
+import 'campaign_detail_screen.dart';
 
 class CampaignsScreen extends StatefulWidget {
   const CampaignsScreen({super.key});
@@ -231,8 +232,11 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
       color: Colors.white,
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Détails de ${campaign.nom} - À venir')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CampaignDetailScreen(campaign: campaign),
+            ),
           );
         },
         borderRadius: BorderRadius.circular(12),
