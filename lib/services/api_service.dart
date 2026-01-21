@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/client.dart';
 import '../models/user.dart';
+import '../models/campaign.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -125,15 +126,11 @@ class ApiService {
         headers: headers,
       );
 
-      print('DEBUG Users - Status: ${response.statusCode}');
-      print('DEBUG Users - Body: ${response.body}');
-
       // Vérifier l'authentification
       _handleAuthError(response);
 
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
-        print('DEBUG Users - Decoded type: ${decodedData.runtimeType}');
         
         if (decodedData is Map<String, dynamic>) {
           final List<dynamic> usersJson = decodedData['data'];
@@ -174,6 +171,90 @@ class ApiService {
       }
     } catch (e) {
       print('Erreur lors du chargement de l\'utilisateur: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer toutes les campagnes avec recherche et filtre par client
+  Future<Map<String, dynamic>> getCampaigns({
+    String? search,
+    int? clientId,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      
+      // Construire l'URL avec paramètres de recherche et filtre
+      var url = '$baseUrl/campagnes';
+      final queryParams = <String, String>{};
+      
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      if (clientId != null) {
+        queryParams['client_id'] = clientId.toString();
+      }
+      
+      final uri = Uri.parse(url).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      );
+
+      // Vérifier l'authentification
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final dynamic decodedData = json.decode(response.body);
+        
+        if (decodedData is Map<String, dynamic>) {
+          // Nouveau format avec campaigns et clients
+          final List<dynamic> campaignsJson = decodedData['campaigns'] ?? decodedData['data'] ?? [];
+          final campaigns = campaignsJson.map((json) => Campaign.fromJson(json)).toList();
+          
+          return {
+            'campaigns': campaigns,
+            'clients': decodedData['clients'] ?? [],
+          };
+        } else if (decodedData is List) {
+          // Ancien format - liste directe
+          return {
+            'campaigns': decodedData.map((json) => Campaign.fromJson(json)).toList(),
+            'clients': [],
+          };
+        } else {
+          throw Exception('Format de réponse inattendu');
+        }
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors du chargement des campagnes: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer une campagne par ID
+  Future<Campaign> getCampaign(int id) async {
+    try {
+      final headers = await _getHeaders();
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/campagnes/$id'),
+        headers: headers,
+      );
+
+      // Vérifier l'authentification
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return Campaign.fromJson(jsonData['data']);
+      } else {
+        throw Exception('Campagne non trouvée');
+      }
+    } catch (e) {
+      print('Erreur lors du chargement de la campagne: $e');
       rethrow;
     }
   }

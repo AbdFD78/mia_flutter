@@ -8,6 +8,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/clients_screen.dart';
 import 'screens/users_screen.dart';
+import 'screens/campaigns_screen.dart';
 import 'screens/coming_soon_screen.dart';
 
 void main() {
@@ -86,7 +87,7 @@ class MyApp extends StatelessWidget {
         // Campagnes
         GoRoute(
           path: '/campagnes',
-          builder: (context, state) => const ComingSoonScreen(title: 'Mes Campagnes'),
+          builder: (context, state) => const CampaignsScreen(),
         ),
         GoRoute(
           path: '/campagne-configs',
