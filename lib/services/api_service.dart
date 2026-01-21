@@ -1,7 +1,9 @@
 // lib/services/api_service.dart
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/client.dart';
 import '../models/user.dart';
 import '../models/campaign.dart';
@@ -281,6 +283,161 @@ class ApiService {
       }
     } catch (e) {
       print('Erreur lors du chargement des détails de la campagne: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer les données pour créer une campagne
+  Future<Map<String, dynamic>> getCampaignCreateData() async {
+    try {
+      final headers = await _getHeaders();
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/campagnes/create-data'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return jsonData['data'];
+      } else {
+        throw Exception('Erreur lors du chargement des données');
+      }
+    } catch (e) {
+      print('Erreur: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer les contacts d'un client
+  Future<Map<String, dynamic>> getClientContacts(int clientId) async {
+    try {
+      final headers = await _getHeaders();
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/campagnes/client/$clientId/contacts'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return jsonData['data'];
+      } else {
+        throw Exception('Erreur lors du chargement des contacts');
+      }
+    } catch (e) {
+      print('Erreur: $e');
+      rethrow;
+    }
+  }
+
+  /// Créer une campagne
+  Future<Map<String, dynamic>> createCampaign({
+    required String nom,
+    required int clientId,
+    required int configId,
+    List<int>? miaIntervenants,
+    List<int>? clientIntervenants,
+    File? imageFile,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      
+      if (imageFile != null) {
+        // Utiliser multipart pour l'upload d'image
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$baseUrl/campagnes'),
+        );
+
+        // Ajouter le token
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+        request.headers['Accept'] = 'application/json';
+
+        // Ajouter les champs
+        request.fields['nom'] = nom;
+        request.fields['client_id'] = clientId.toString();
+        request.fields['configs_id'] = configId.toString();
+        
+        if (miaIntervenants != null && miaIntervenants.isNotEmpty) {
+          for (int i = 0; i < miaIntervenants.length; i++) {
+            request.fields['mia_intervenants[$i]'] = miaIntervenants[i].toString();
+          }
+        }
+        
+        if (clientIntervenants != null && clientIntervenants.isNotEmpty) {
+          for (int i = 0; i < clientIntervenants.length; i++) {
+            request.fields['client_intervenants[$i]'] = clientIntervenants[i].toString();
+          }
+        }
+
+        // Ajouter l'image
+        var stream = http.ByteStream(imageFile.openRead());
+        var length = await imageFile.length();
+        var multipartFile = http.MultipartFile(
+          'picture',
+          stream,
+          length,
+          filename: imageFile.path.split('/').last,
+          contentType: MediaType('image', 'jpeg'),
+        );
+        request.files.add(multipartFile);
+
+        // Envoyer la requête
+        var streamedResponse = await request.send();
+        var response = await http.Response.fromStream(streamedResponse);
+
+        _handleAuthError(response);
+
+        if (response.statusCode == 201) {
+          final Map<String, dynamic> jsonData = json.decode(response.body);
+          return jsonData['data'];
+        } else if (response.statusCode == 422) {
+          final Map<String, dynamic> jsonData = json.decode(response.body);
+          throw Exception(jsonData['message'] ?? 'Erreur de validation');
+        } else {
+          throw Exception('Erreur lors de la création de la campagne');
+        }
+      } else {
+        // Sans image, utiliser la méthode standard JSON
+        final headers = await _getHeaders();
+        
+        final body = {
+          'nom': nom,
+          'client_id': clientId,
+          'configs_id': configId,
+          if (miaIntervenants != null && miaIntervenants.isNotEmpty)
+            'mia_intervenants': miaIntervenants,
+          if (clientIntervenants != null && clientIntervenants.isNotEmpty)
+            'client_intervenants': clientIntervenants,
+        };
+
+        final response = await http.post(
+          Uri.parse('$baseUrl/campagnes'),
+          headers: headers,
+          body: json.encode(body),
+        );
+
+        _handleAuthError(response);
+
+        if (response.statusCode == 201) {
+          final Map<String, dynamic> jsonData = json.decode(response.body);
+          return jsonData['data'];
+        } else if (response.statusCode == 422) {
+          final Map<String, dynamic> jsonData = json.decode(response.body);
+          throw Exception(jsonData['message'] ?? 'Erreur de validation');
+        } else {
+          throw Exception('Erreur lors de la création de la campagne');
+        }
+      }
+    } catch (e) {
+      print('Erreur: $e');
       rethrow;
     }
   }

@@ -5,6 +5,7 @@ import '../models/campaign.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
 import 'campaign_detail_screen.dart';
+import 'campaign_create_screen.dart';
 
 class CampaignsScreen extends StatefulWidget {
   const CampaignsScreen({super.key});
@@ -162,6 +163,31 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
         ),
       ),
       drawer: const AppDrawer(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          // Naviguer vers l'écran de création
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CampaignCreateScreen(),
+            ),
+          );
+          
+          // Recharger la liste si une campagne a été créée
+          if (result == true) {
+            _loadCampaigns();
+          }
+        },
+        backgroundColor: Colors.blue[700],
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Créer une campagne',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
