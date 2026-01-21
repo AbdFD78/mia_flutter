@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
 import 'campaign_detail_screen.dart';
 import 'campaign_create_screen.dart';
+import 'campaign_edit_screen.dart';
 
 class CampaignsScreen extends StatefulWidget {
   const CampaignsScreen({super.key});
@@ -256,113 +257,137 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
         side: BorderSide(color: Colors.grey.shade200, width: 1),
       ),
       color: Colors.white,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CampaignDetailScreen(campaign: campaign),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: Colors.blue.shade50,
+              child: Text(
+                campaign.nom.isNotEmpty 
+                    ? campaign.nom[0].toUpperCase() 
+                    : 'C',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Avatar
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: Colors.blue.shade50,
-                child: Text(
-                  campaign.nom.isNotEmpty 
-                      ? campaign.nom[0].toUpperCase() 
-                      : 'C',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
+            const SizedBox(width: 16),
+            
+            // Informations
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Nom de la campagne
+                  Text(
+                    campaign.nom,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              
-              // Informations
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Nom de la campagne
-                    Text(
-                      campaign.nom,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: Colors.black87,
+                  const SizedBox(height: 6),
+                  
+                  // Nom du client
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.business_outlined,
+                        size: 14,
+                        color: Colors.grey[600],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    
-                    // Nom du client
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.business_outlined,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            campaign.clientName,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          campaign.clientName,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    
-                    // Configuration
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.settings_outlined,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            campaign.configName,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  
+                  // Configuration
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.settings_outlined,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          campaign.configName,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            // Boutons d'action
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Bouton Voir
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CampaignDetailScreen(campaign: campaign),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.visibility_outlined),
+                  color: Colors.blue[700],
+                  tooltip: 'Voir',
                 ),
-              ),
-              
-              // Flèche
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey[400],
-                size: 24,
-              ),
-            ],
-          ),
+                
+                // Bouton Éditer (affiché uniquement si l'utilisateur a la permission)
+                if (campaign.canEdit)
+                  IconButton(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CampaignEditScreen(campaign: campaign),
+                        ),
+                      );
+                      
+                      // Recharger la liste si la campagne a été modifiée
+                      if (result == true) {
+                        _loadCampaigns();
+                      }
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    color: Colors.green[700],
+                    tooltip: 'Modifier',
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );

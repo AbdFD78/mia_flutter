@@ -9,6 +9,7 @@ class Campaign {
   final int? configsId;
   final String configName;
   final String? configPicture;
+  final bool canEdit; // Nouveau champ pour les permissions
 
   Campaign({
     required this.id,
@@ -19,6 +20,7 @@ class Campaign {
     this.configsId,
     required this.configName,
     this.configPicture,
+    this.canEdit = false, // Par défaut, pas de permission d'édition
   });
 
   /// Créer un objet Campaign depuis JSON
@@ -32,6 +34,7 @@ class Campaign {
       configsId: json['configs_id'],
       configName: json['config_name'] ?? 'Configuration non définie',
       configPicture: json['config_picture'],
+      canEdit: json['can_edit'] ?? false, // Lire la permission depuis l'API
     );
   }
 
@@ -46,6 +49,7 @@ class Campaign {
       'configs_id': configsId,
       'config_name': configName,
       'config_picture': configPicture,
+      'can_edit': canEdit,
     };
   }
 }
