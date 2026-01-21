@@ -507,4 +507,86 @@ class ApiService {
       rethrow;
     }
   }
+
+  /// Test d'authentification pour events
+  Future<Map<String, dynamic>> testEventsAuth() async {
+    try {
+      final headers = await _getHeaders();
+      
+      print('🧪 Test Events Auth - Headers: $headers');
+      
+      var uri = Uri.parse('$baseUrl/events/test');
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      );
+
+      print('🧪 Test Events Auth - Status: ${response.statusCode}');
+      print('🧪 Test Events Auth - Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Status: ${response.statusCode}, Body: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ Erreur Test: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer la liste des événements
+  Future<List<Map<String, dynamic>>> getEvents({String tab = 'events', String search = ''}) async {
+    try {
+      final headers = await _getHeaders();
+      
+      print('📡 getEvents - Headers: $headers');
+      print('📡 getEvents - URL: $baseUrl/events?tab=$tab&search=$search');
+      
+      var uri = Uri.parse('$baseUrl/events?tab=$tab&search=$search');
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      );
+
+      print('📡 getEvents - Status: ${response.statusCode}');
+      print('📡 getEvents - Body: ${response.body}');
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(jsonData['data'] ?? []);
+      } else {
+        throw Exception('Erreur lors du chargement des événements');
+      }
+    } catch (e) {
+      print('Erreur: $e');
+      rethrow;
+    }
+  }
+
+  /// Archiver un événement
+  Future<void> archiveEvent(int eventId) async {
+    try {
+      final headers = await _getHeaders();
+      
+      final response = await http.delete(
+        Uri.parse('$baseUrl/events/$eventId'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode != 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['message'] ?? 'Erreur lors de l\'archivage');
+      }
+    } catch (e) {
+      print('Erreur: $e');
+      rethrow;
+    }
+  }
 }

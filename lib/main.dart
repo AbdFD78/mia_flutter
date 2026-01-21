@@ -9,6 +9,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/clients_screen.dart';
 import 'screens/users_screen.dart';
 import 'screens/campaigns_screen.dart';
+import 'screens/events_screen.dart';
 import 'screens/coming_soon_screen.dart';
 
 void main() {
@@ -74,7 +75,7 @@ class MyApp extends StatelessWidget {
         // Événements
         GoRoute(
           path: '/events',
-          builder: (context, state) => const ComingSoonScreen(title: 'Événements'),
+          builder: (context, state) => const EventsScreen(),
         ),
         GoRoute(
           path: '/calendar',
