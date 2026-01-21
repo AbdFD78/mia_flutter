@@ -57,8 +57,8 @@ class _ImageLoadQueue {
       _queue.removeAt(0);
     }
     
-    // Délai de 2 secondes entre chaque image
-    Future.delayed(const Duration(milliseconds: 2000), () {
+    // Délai de 3 secondes entre chaque image pour laisser respirer le serveur PHP
+    Future.delayed(const Duration(milliseconds: 3000), () {
       if (_queue.isNotEmpty) {
         _processQueue();
       } else {
@@ -623,8 +623,8 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                           width: 100,
                           height: 100,
                           fit: BoxFit.cover,
-                          cacheWidth: 100,
-                          cacheHeight: 100,
+                          cacheWidth: 80,
+                          cacheHeight: 80,
                           index: index,
                         ),
                       ),
@@ -1324,7 +1324,7 @@ class _NetworkImageWithRetry extends StatefulWidget {
   final BoxFit fit;
   final int? cacheWidth;
   final int? cacheHeight;
-  final int index; // Pour échelonner les requêtes
+  final int index;
 
   const _NetworkImageWithRetry({
     required this.url,
@@ -1355,14 +1355,13 @@ class _NetworkImageWithRetryState extends State<_NetworkImageWithRetry> {
     
     // Si l'image est déjà en cache Flutter, la charger immédiatement
     if (_cache.isLoaded(widget.url)) {
-      // Chargement immédiat depuis le cache Flutter, pas de délai
       setState(() {
         _imageKey = widget.url;
         _shouldLoad = true;
       });
     } else if (!_cache.hasFailed(widget.url)) {
-      // Charger immédiatement, la file d'attente gère les délais
-      Future.delayed(Duration(milliseconds: 500 + (widget.index * 100)), () {
+      // Délai initial pour laisser respirer le serveur
+      Future.delayed(Duration(milliseconds: 1000 + (widget.index * 200)), () {
         if (mounted) _loadImage();
       });
     }
@@ -1399,7 +1398,6 @@ class _NetworkImageWithRetryState extends State<_NetworkImageWithRetry> {
 
   @override
   void dispose() {
-    // Libérer le lock si on était en cours de chargement
     if (_hasAcquiredLock) {
       _hasAcquiredLock = false;
       _queue.releaseLock();
@@ -1411,29 +1409,34 @@ class _NetworkImageWithRetryState extends State<_NetworkImageWithRetry> {
     if (_retryCount >= 3 || _isRetrying || !mounted) return;
     
     if (!mounted) return;
+    
     setState(() {
       _isRetrying = true;
-      _retryCount++;
     });
     
-    // Réacquérir le lock pour le retry
+    // Attendre un peu avant de réessayer
+    await Future.delayed(const Duration(milliseconds: 500));
+    
     await _queue.acquireLock();
     _hasAcquiredLock = true;
     
-    // Utiliser l'URL originale pour bénéficier du cache Flutter
     if (mounted) {
       setState(() {
-        _imageKey = widget.url;
-        _isRetrying = false;
+        _imageKey = null;
+        _shouldLoad = false;
       });
+      
+      // Relancer le chargement
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (mounted) {
+        _loadImage();
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Afficher un placeholder cliquable si l'image n'est pas encore chargée
     if (_imageKey == null && !_shouldLoad) {
-      // Si l'image a déjà échoué, afficher un état différent
       if (_cache.hasFailed(widget.url)) {
         return Container(
           color: Colors.red.shade50,
@@ -1488,7 +1491,6 @@ class _NetworkImageWithRetryState extends State<_NetworkImageWithRetry> {
       );
     }
     
-    // En cours de chargement
     if (_imageKey == null && _shouldLoad) {
       return Container(
         color: Colors.grey[100],
@@ -1511,10 +1513,8 @@ class _NetworkImageWithRetryState extends State<_NetworkImageWithRetry> {
       cacheHeight: widget.cacheHeight,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) {
-          // Image chargée avec succès
           _cache.markAsLoaded(widget.url);
           
-          // Libérer le lock
           if (_hasAcquiredLock) {
             _hasAcquiredLock = false;
             Future.microtask(() => _queue.releaseLock());
@@ -1538,26 +1538,25 @@ class _NetworkImageWithRetryState extends State<_NetworkImageWithRetry> {
       errorBuilder: (context, error, stackTrace) {
         print('Erreur miniature (tentative $_retryCount): ${widget.url}');
         
-        // Libérer le lock en cas d'erreur
         if (_hasAcquiredLock) {
           _hasAcquiredLock = false;
           Future.microtask(() => _queue.releaseLock());
         }
         
-        // Retry automatique jusqu'à 3 fois avec délai croissant
+        // Incrémenter immédiatement pour éviter les retries multiples
         if (_retryCount < 3 && mounted) {
-          Future.delayed(Duration(seconds: 2 + (_retryCount * 2)), () {
+          final currentRetry = _retryCount;
+          _retryCount++;
+          
+          Future.delayed(Duration(seconds: 2 + (currentRetry * 2)), () {
             if (mounted) {
-              _retryCount++;
               _loadImage();
             }
           });
-        } else {
-          // Marquer comme échouée après 3 tentatives
+        } else if (_retryCount >= 3) {
           _cache.markAsFailed(widget.url);
         }
         
-        // Afficher un état de chargement pendant le retry
         return GestureDetector(
           onTap: _retryCount >= 3 ? null : _retry,
           child: Container(
@@ -1615,14 +1614,12 @@ class _FullScreenImageWithRetry extends StatefulWidget {
 
 class _FullScreenImageWithRetryState extends State<_FullScreenImageWithRetry> {
   int _retryCount = 0;
-  String? _imageKey; // Nullable pour gérer le délai initial
+  String? _imageKey;
   bool _isRetrying = false;
-  bool _hasAutoRetried = false; // Pour éviter les retries multiples
 
   @override
   void initState() {
     super.initState();
-    // Délai avant de charger l'image plein écran pour laisser respirer le serveur
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() {
@@ -1634,7 +1631,6 @@ class _FullScreenImageWithRetryState extends State<_FullScreenImageWithRetry> {
 
   @override
   void dispose() {
-    // S'assurer qu'on ne fait plus de setState après dispose
     super.dispose();
   }
 
@@ -1647,10 +1643,8 @@ class _FullScreenImageWithRetryState extends State<_FullScreenImageWithRetry> {
       _retryCount++;
     });
     
-    // Délai plus long pour laisser le serveur respirer
     await Future.delayed(Duration(milliseconds: 2000 * _retryCount));
     
-    // Utiliser l'URL originale pour bénéficier du cache Flutter
     if (!mounted) return;
     setState(() {
       _imageKey = widget.url;
@@ -1660,7 +1654,6 @@ class _FullScreenImageWithRetryState extends State<_FullScreenImageWithRetry> {
 
   @override
   Widget build(BuildContext context) {
-    // Afficher un loader pendant le délai initial
     if (_imageKey == null) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white),
@@ -1694,8 +1687,6 @@ class _FullScreenImageWithRetryState extends State<_FullScreenImageWithRetry> {
       },
       errorBuilder: (context, error, stackTrace) {
         print('Erreur image plein écran (tentative $_retryCount): ${widget.url}');
-        
-        // Pas de retry automatique pour le plein écran
         
         return Center(
           child: Padding(
