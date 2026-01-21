@@ -20,6 +20,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
+  
+  // Filtres
+  List<Map<String, dynamic>> _clientTypes = [];
+  List<Map<String, dynamic>> _statuses = [];
+  int? _selectedClientTypeId;
+  int? _selectedStatusId;
 
   @override
 void initState() {
@@ -41,10 +47,16 @@ void initState() {
     });
 
     try {
-      final clients = await _apiService.getClients();
+      final result = await _apiService.getClients(
+        clientTypeId: _selectedClientTypeId,
+        statusId: _selectedStatusId,
+      );
+      
       setState(() {
-        _allClients = clients;
-        _filteredClients = clients;
+        _allClients = result['clients'] as List<Client>;
+        _filteredClients = _allClients;
+        _clientTypes = List<Map<String, dynamic>>.from(result['client_types'] ?? []);
+        _statuses = List<Map<String, dynamic>>.from(result['statuses'] ?? []);
         _isLoading = false;
       });
     } catch (e) {
@@ -112,11 +124,17 @@ void initState() {
           ),
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
+          preferredSize: const Size.fromHeight(140),
           child: Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _buildSearchBar(),
+            child: Column(
+              children: [
+                _buildSearchBar(),
+                const SizedBox(height: 12),
+                _buildFilters(),
+              ],
+            ),
           ),
         ),
       ),
@@ -134,8 +152,8 @@ void initState() {
     ),
     child: TextField(
       controller: _searchController,
-      keyboardType: TextInputType.text, // ← AJOUTER CETTE LIGNE
-      textInputAction: TextInputAction.search, // ← AJOUTER CETTE LIGNE
+      keyboardType: TextInputType.text,
+      textInputAction: TextInputAction.search,
       onChanged: (value) {
         print('📝 Texte changé: "$value"');
         _filterClients();
@@ -162,6 +180,121 @@ void initState() {
     ),
   );
 }
+
+  // Filtres par type et statut
+  Widget _buildFilters() {
+    return Row(
+      children: [
+        // Filtre par type de client
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int?>(
+                value: _selectedClientTypeId,
+                isExpanded: true,
+                hint: Text(
+                  'Type de client',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                icon: Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Tous les types'),
+                  ),
+                  ..._clientTypes.map((type) {
+                    return DropdownMenuItem<int?>(
+                      value: type['id'] as int,
+                      child: Text(
+                        type['name'] as String,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    );
+                  }).toList(),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedClientTypeId = value;
+                  });
+                  _loadClients();
+                },
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Filtre par statut
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int?>(
+                value: _selectedStatusId,
+                isExpanded: true,
+                hint: Text(
+                  'Statut',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                icon: Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Tous les statuts'),
+                  ),
+                  ..._statuses.map((status) {
+                    return DropdownMenuItem<int?>(
+                      value: status['id'] as int,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: _hexToColor(status['color'] as String),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              status['name'] as String,
+                              style: const TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedStatusId = value;
+                  });
+                  _loadClients();
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildBody() {
     // Affichage pendant le chargement

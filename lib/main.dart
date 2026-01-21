@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/clients_screen.dart';
+import 'screens/users_screen.dart';
 import 'screens/coming_soon_screen.dart';
 
 void main() {
@@ -107,7 +108,7 @@ class MyApp extends StatelessWidget {
         // Utilisateurs
         GoRoute(
           path: '/users',
-          builder: (context, state) => const ComingSoonScreen(title: 'Utilisateurs'),
+          builder: (context, state) => const UsersScreen(),
         ),
         GoRoute(
           path: '/permissions',
