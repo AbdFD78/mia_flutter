@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "301078913074",
+    "project_id": "mia-crm-66cb7",
+    "storage_bucket": "mia-crm-66cb7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301078913074:android:6a35fa42949a765f8ddc2b",
+        "android_client_info": {
+          "package_name": "com.mia.mia_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNHRoF3xSXF2MsbWQYMQ90_B2MAhLmoZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

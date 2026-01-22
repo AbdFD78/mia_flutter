@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
+import '../theme/app_theme.dart';
 import 'user_detail_screen.dart';
 
 class UsersScreen extends StatefulWidget {
@@ -49,18 +50,9 @@ class _UsersScreenState extends State<UsersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: AppTheme.backgroundPrimary,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Utilisateurs',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Utilisateurs', style: AppTheme.heading1),
       ),
       drawer: const AppDrawer(),
       body: _buildBody(),
@@ -83,21 +75,17 @@ class _UsersScreenState extends State<UsersScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-              const SizedBox(height: 16),
+              Icon(Icons.error_outline, size: 64, color: AppTheme.accentRed),
+              const SizedBox(height: AppTheme.spacingL),
               Text(
                 'Erreur de connexion',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
+                style: AppTheme.heading2,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTheme.spacingS),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600]),
+                style: AppTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
@@ -123,14 +111,11 @@ class _UsersScreenState extends State<UsersScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
+            Icon(Icons.people_outline, size: 64, color: AppTheme.textHint),
+            const SizedBox(height: AppTheme.spacingL),
             Text(
               'Aucun utilisateur trouvé',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: AppTheme.bodyLarge,
             ),
           ],
         ),
@@ -153,11 +138,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   Widget _buildUserCard(User user) {
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      margin: const EdgeInsets.only(bottom: AppTheme.spacingL),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -167,9 +148,9 @@ class _UsersScreenState extends State<UsersScreen> {
             ),
           );
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppTheme.spacingXL),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -180,7 +161,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   // Avatar
                   CircleAvatar(
                     radius: 30,
-                    backgroundColor: const Color(0xFFff6b9d).withOpacity(0.1),
+                    backgroundColor: AppTheme.accentBlue.withOpacity(0.1),
                     backgroundImage: user.picture != null
                         ? NetworkImage(user.picture!)
                         : null,
@@ -188,11 +169,11 @@ class _UsersScreenState extends State<UsersScreen> {
                         ? Icon(
                             Icons.person,
                             size: 30,
-                            color: const Color(0xFFff6b9d),
+                            color: AppTheme.accentBlue,
                           )
                         : null,
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppTheme.spacingL),
                   
                   // Nom et type
                   Expanded(
@@ -201,28 +182,23 @@ class _UsersScreenState extends State<UsersScreen> {
                       children: [
                         Text(
                           user.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                          style: AppTheme.heading3,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppTheme.spacingXS),
                         if (user.userTypeName != null)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                              horizontal: AppTheme.spacingS,
+                              vertical: AppTheme.spacingXS,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFff6b9d).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
+                              color: AppTheme.accentBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusM),
                             ),
                             child: Text(
                               user.userTypeName!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFFff6b9d),
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.accentBlue,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -234,25 +210,25 @@ class _UsersScreenState extends State<UsersScreen> {
                   // Icône flèche
                   Icon(
                     Icons.chevron_right,
-                    color: Colors.grey[400],
+                    color: AppTheme.textHint,
                   ),
                 ],
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.spacingL),
               const Divider(height: 1),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.spacingL),
               
               // Informations
               _buildInfoRow(Icons.email_outlined, 'Email', user.email),
               
               if (user.telephone != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTheme.spacingM),
                 _buildInfoRow(Icons.phone_outlined, 'Téléphone', user.telephone!),
               ],
               
               if (user.clientName != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTheme.spacingM),
                 _buildInfoRow(Icons.business_outlined, 'Client', user.clientName!),
               ],
             ],
@@ -266,25 +242,20 @@ class _UsersScreenState extends State<UsersScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 12),
+        Icon(icon, size: 18, color: AppTheme.textSecondary),
+        const SizedBox(width: AppTheme.spacingM),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: AppTheme.bodySmall.copyWith(fontSize: 12),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
+                style: AppTheme.bodyMedium.copyWith(
                   fontWeight: FontWeight.w500,
                 ),
               ),

@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../providers/auth_provider.dart';
 import '../services/dashboard_service.dart';
 import '../widgets/app_drawer.dart';
+import '../theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -67,12 +68,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F3EF),
+      backgroundColor: AppTheme.backgroundPrimary,
       appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF333333),
-        elevation: 1,
+        title: const Text('Dashboard', style: AppTheme.heading1),
       ),
       drawer: const AppDrawer(),
       body: _isLoading

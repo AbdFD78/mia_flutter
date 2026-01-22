@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/activity.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
+import '../theme/app_theme.dart';
 
 class ActivitiesScreen extends StatefulWidget {
   const ActivitiesScreen({super.key});
@@ -147,17 +148,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       backgroundColor: Colors.grey[50],
       drawer: const AppDrawer(),
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Suivies Clients',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('Suivies Clients', style: AppTheme.heading2),
       ),
       body: Column(
         children: [

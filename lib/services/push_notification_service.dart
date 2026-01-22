@@ -1,0 +1,264 @@
+// lib/services/push_notification_service.dart
+
+import 'dart:convert';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
+import 'auth_service.dart';
+
+/// Service pour gérer les notifications push natives dans Flutter
+/// Compatible avec le système existant Laravel sans modification
+class PushNotificationService {
+  static final PushNotificationService _instance = PushNotificationService._internal();
+  factory PushNotificationService() => _instance;
+  PushNotificationService._internal();
+
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final AuthService _authService = AuthService();
+  
+  String? _fcmToken;
+  bool _isInitialized = false;
+  
+  /// Initialiser le service de notifications push
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+    
+    try {
+      // Demander les permissions
+      NotificationSettings settings = await _messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        print('✅ Permissions de notification accordées');
+        
+        // Obtenir le token FCM
+        await _getFCMToken();
+        
+        // Configurer les handlers pour les notifications
+        _setupNotificationHandlers();
+        
+        _isInitialized = true;
+      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+        print('⚠️ Permissions de notification provisoires');
+        await _getFCMToken();
+        _setupNotificationHandlers();
+        _isInitialized = true;
+      } else {
+        print('❌ Permissions de notification refusées');
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'initialisation des notifications push: $e');
+    }
+  }
+
+  /// Obtenir le token FCM
+  Future<String?> _getFCMToken() async {
+    try {
+      _fcmToken = await _messaging.getToken();
+      if (_fcmToken != null) {
+        print('📱 Token FCM obtenu: ${_fcmToken!.substring(0, 20)}...');
+        
+        // Enregistrer automatiquement le device si l'utilisateur est connecté
+        final isAuth = await _authService.isAuthenticated();
+        if (isAuth) {
+          await registerDevice();
+        }
+      }
+      
+      // Écouter les changements de token
+      _messaging.onTokenRefresh.listen((newToken) async {
+        print('🔄 Token FCM rafraîchi: ${newToken.substring(0, 20)}...');
+        _fcmToken = newToken;
+        final isAuth = await _authService.isAuthenticated();
+        if (isAuth) {
+          await registerDevice();
+        }
+      });
+      
+      return _fcmToken;
+    } catch (e) {
+      print('❌ Erreur lors de la récupération du token FCM: $e');
+      return null;
+    }
+  }
+
+  /// Configurer les handlers pour les notifications
+  void _setupNotificationHandlers() {
+    // Notification reçue quand l'app est au premier plan
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('📬 Notification reçue (app au premier plan):');
+      print('   Titre: ${message.notification?.title}');
+      print('   Corps: ${message.notification?.body}');
+      print('   Data: ${message.data}');
+      
+      // Ici vous pouvez afficher une notification locale ou mettre à jour l'UI
+      // Pour l'instant, on log juste
+    });
+
+    // Notification reçue quand l'app est en arrière-plan et l'utilisateur clique dessus
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('📬 Notification ouverte (app en arrière-plan):');
+      print('   Titre: ${message.notification?.title}');
+      print('   Data: ${message.data}');
+      
+      // Naviguer vers la page appropriée selon message.data['link']
+      _handleNotificationTap(message);
+    });
+
+    // Vérifier si l'app a été ouverte depuis une notification (app fermée)
+    _messaging.getInitialMessage().then((RemoteMessage? message) {
+      if (message != null) {
+        print('📬 App ouverte depuis une notification (app fermée):');
+        print('   Titre: ${message.notification?.title}');
+        _handleNotificationTap(message);
+      }
+    });
+  }
+
+  /// Gérer le clic sur une notification
+  void _handleNotificationTap(RemoteMessage message) {
+    final link = message.data['link'] ?? message.data['url'] ?? message.data['click_action'];
+    if (link != null) {
+      print('🔗 Navigation vers: $link');
+      // TODO: Implémenter la navigation avec go_router
+      // Vous pouvez utiliser un GlobalKey<NavigatorState> ou un router
+    }
+  }
+
+  /// Obtenir le token FCM actuel
+  String? get fcmToken => _fcmToken;
+
+  /// Enregistrer le device sur le serveur Laravel
+  /// Utilise l'endpoint existant /push/register-device sans modification
+  Future<bool> registerDevice() async {
+    try {
+      final isAuth = await _authService.isAuthenticated();
+      if (!isAuth) {
+        print('⚠️ Utilisateur non authentifié, device non enregistré');
+        return false;
+      }
+
+      if (_fcmToken == null) {
+        print('⚠️ Token FCM non disponible');
+        return false;
+      }
+
+      // Obtenir les informations du device
+      final deviceInfo = await _getDeviceInfo();
+      
+      // Obtenir le token d'authentification
+      final token = await _authService.getToken();
+      if (token == null) {
+        print('⚠️ Token d\'authentification non disponible');
+        return false;
+      }
+      
+      // Utiliser l'URL de base sans /api car la route est dans web.php
+      final baseUrl = AppConfig.isProduction
+          ? 'https://crm.model-intelligence-agency.com'
+          : 'http://10.0.2.2:8000';
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/push/register-device'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'fcm_token': _fcmToken,
+          'device_fingerprint': deviceInfo['fingerprint'],
+          'device_type': 'mobile',
+          'platform': deviceInfo['platform'],
+          'consent_asked': true,
+          'consent_given': true,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Device enregistré avec succès sur le serveur');
+        return true;
+      } else {
+        print('❌ Erreur lors de l\'enregistrement du device: ${response.statusCode}');
+        print('   Réponse: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'enregistrement du device: $e');
+      return false;
+    }
+  }
+
+  /// Obtenir les informations du device
+  Future<Map<String, String>> _getDeviceInfo() async {
+    final deviceInfoPlugin = DeviceInfoPlugin();
+    String platform = 'unknown';
+    String fingerprint = '';
+
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfoPlugin.androidInfo;
+        platform = 'Android ${androidInfo.version.release}';
+        fingerprint = androidInfo.id; // Android ID comme fingerprint
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfoPlugin.iosInfo;
+        platform = 'iOS ${iosInfo.systemVersion}';
+        fingerprint = iosInfo.identifierForVendor ?? 'ios-${DateTime.now().millisecondsSinceEpoch}';
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des infos device: $e');
+      fingerprint = 'flutter-${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    return {
+      'platform': platform,
+      'fingerprint': fingerprint,
+    };
+  }
+
+  /// Désactiver les notifications pour ce device
+  Future<bool> disableDevice() async {
+    try {
+      final isAuth = await _authService.isAuthenticated();
+      if (!isAuth) return false;
+
+      final deviceInfo = await _getDeviceInfo();
+      final token = await _authService.getToken();
+      if (token == null) return false;
+      
+      final baseUrl = AppConfig.isProduction
+          ? 'https://crm.model-intelligence-agency.com'
+          : 'http://10.0.2.2:8000';
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/push/disable-device'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'device_fingerprint': deviceInfo['fingerprint'],
+          'fcm_token': _fcmToken,
+        }),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Erreur lors de la désactivation du device: $e');
+      return false;
+    }
+  }
+}
+

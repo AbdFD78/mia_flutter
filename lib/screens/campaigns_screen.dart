@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/campaign.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
+import '../theme/app_theme.dart';
 import 'campaign_detail_screen.dart';
 import 'campaign_create_screen.dart';
 import 'campaign_edit_screen.dart';
@@ -80,59 +81,36 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: AppTheme.backgroundPrimary,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Mes Campagnes',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Mes Campagnes', style: AppTheme.heading1),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(130),
           child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            color: AppTheme.backgroundSecondary,
+            padding: const EdgeInsets.fromLTRB(AppTheme.spacingL, 0, AppTheme.spacingL, AppTheme.spacingL),
             child: Column(
               children: [
                 // Barre de recherche
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher par nom...',
-                      prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      hintStyle: TextStyle(color: Colors.grey[500]),
-                    ),
+                TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Rechercher par nom...',
+                    prefixIcon: Icon(Icons.search),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTheme.spacingM),
                 
                 // Filtre par client
                 Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: AppTheme.dropdownDecoration,
                   child: DropdownButtonFormField<int?>(
                     value: _selectedClientId,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(Icons.business_outlined, color: Colors.grey[600]),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.business_outlined),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: EdgeInsets.symmetric(horizontal: AppTheme.spacingL, vertical: AppTheme.spacingM + 2),
                       hintText: 'Tous les clients',
-                      hintStyle: TextStyle(color: Colors.grey[500]),
                     ),
                     isExpanded: true,
                     items: [
@@ -179,7 +157,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
             _loadCampaigns();
           }
         },
-        backgroundColor: Colors.blue[700],
+        backgroundColor: AppTheme.accentBlue,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Créer une campagne',
@@ -196,10 +174,10 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('Erreur: $_error'),
-                      const SizedBox(height: 16),
+                      Icon(Icons.error_outline, size: 64, color: AppTheme.accentRed),
+                      const SizedBox(height: AppTheme.spacingL),
+                      Text('Erreur: $_error', style: AppTheme.bodyLarge),
+                      const SizedBox(height: AppTheme.spacingL),
                       ElevatedButton(
                         onPressed: _loadCampaigns,
                         child: const Text('Réessayer'),
@@ -219,14 +197,12 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                                   Icon(
                                     Icons.campaign_outlined,
                                     size: 80,
-                                    color: Colors.grey[400],
+                                    color: AppTheme.textHint,
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: AppTheme.spacingL),
                                   Text(
                                     'Aucune campagne trouvée',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey[600],
+                                    style: AppTheme.bodyLarge.copyWith(
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -251,32 +227,25 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
 
   Widget _buildCampaignCard(Campaign campaign) {
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200, width: 1),
-      ),
-      color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.spacingL),
         child: Row(
           children: [
             // Avatar
             CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.blue.shade50,
+              backgroundColor: AppTheme.accentBlue.withOpacity(0.1),
               child: Text(
                 campaign.nom.isNotEmpty 
                     ? campaign.nom[0].toUpperCase() 
                     : 'C',
-                style: TextStyle(
+                style: AppTheme.heading3.copyWith(
                   fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade700,
+                  color: AppTheme.accentBlue,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppTheme.spacingL),
             
             // Informations
             Expanded(
@@ -286,11 +255,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                   // Nom de la campagne
                   Text(
                     campaign.nom,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                    style: AppTheme.heading3.copyWith(fontSize: 16),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -302,16 +267,13 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                       Icon(
                         Icons.business_outlined,
                         size: 14,
-                        color: Colors.grey[600],
+                        color: AppTheme.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           campaign.clientName,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
+                          style: AppTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -326,16 +288,13 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                       Icon(
                         Icons.settings_outlined,
                         size: 14,
-                        color: Colors.grey[600],
+                        color: AppTheme.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           campaign.configName,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
+                          style: AppTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../widgets/app_drawer.dart';
 import '../config/app_config.dart';
+import '../theme/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -130,9 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profil mis à jour avec succès'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Profil mis à jour avec succès'),
+            backgroundColor: AppTheme.accentGreen,
           ),
         );
       }
@@ -144,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.accentRed,
           ),
         );
       }
@@ -176,9 +177,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mot de passe mis à jour avec succès'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Mot de passe mis à jour avec succès'),
+            backgroundColor: AppTheme.accentGreen,
           ),
         );
       }
@@ -190,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.accentRed,
           ),
         );
       }
@@ -202,20 +203,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = Provider.of<AuthProvider>(context).user;
     
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppTheme.backgroundPrimary,
       drawer: const AppDrawer(),
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Mon Profil',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('Mon Profil', style: AppTheme.heading2),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -256,10 +247,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final imageUrl = _currentImageUrl ?? user?.picture;
     
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
@@ -267,45 +254,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             width: double.infinity,
             height: 200,
-            color: Colors.grey[300],
+            color: AppTheme.borderLight,
             child: imageUrl != null
                 ? Image.network(
                     AppConfig.getResourceUrl(imageUrl),
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(Icons.person, size: 80, color: Colors.grey),
+                      return Center(
+                        child: Icon(Icons.person, size: 80, color: AppTheme.textHint),
                       );
                     },
                   )
-                : const Center(
-                    child: Icon(Icons.person, size: 80, color: Colors.grey),
+                : Center(
+                    child: Icon(Icons.person, size: 80, color: AppTheme.textHint),
                   ),
           ),
           
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppTheme.spacingXXL),
             child: Column(
               children: [
                 // Nom
                 Text(
                   user?.name ?? 'Utilisateur',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: AppTheme.heading3.copyWith(fontSize: 22),
                 ),
                 
-                const SizedBox(height: 4),
+                const SizedBox(height: AppTheme.spacingXS),
                 
                 // Email
                 Text(
                   user?.email ?? '',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: AppTheme.bodySmall,
                 ),
               ],
             ),
@@ -317,39 +297,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildTeamSection() {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spacingL),
             child: Text(
               'MON ÉQUIPE',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
+              style: AppTheme.heading3.copyWith(fontSize: 16),
             ),
           ),
           const Divider(height: 1),
           _isLoadingTeam
               ? const Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(AppTheme.spacingL),
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _teamMembers.isEmpty
                   ? Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppTheme.spacingL),
                       child: Text(
                         'Aucun membre d\'équipe',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
+                        style: AppTheme.bodyMedium,
                         textAlign: TextAlign.center,
                       ),
                     )
@@ -368,16 +337,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? const Icon(Icons.person)
                                 : null,
                           ),
-                          title: Text(member['name'] ?? ''),
+                          title: Text(member['name'] ?? '', style: AppTheme.bodyMedium),
                           subtitle: Text(
                             member['user_type'] ?? 'Inconnu',
-                            style: TextStyle(
-                              color: Colors.blue[700],
-                              fontSize: 12,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.accentBlue,
                             ),
                           ),
                           trailing: IconButton(
-                            icon: Icon(Icons.email, color: Colors.grey[600]),
+                            icon: Icon(Icons.email, color: AppTheme.textSecondary),
                             onPressed: () {
                               // TODO: Ouvrir l'email
                             },
@@ -392,46 +360,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSettingsSection() {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spacingL),
             child: Text(
               'Paramètres',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
+              style: AppTheme.heading3.copyWith(fontSize: 16),
             ),
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spacingL),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Notifications push',
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: AppTheme.bodyMedium.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.spacingL),
                 Text(
                   'La gestion des notifications push sera disponible prochainement.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
+                  style: AppTheme.caption,
                 ),
               ],
             ),
@@ -453,31 +407,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.spacingL),
               child: Text(
                 'Modifier mon profil',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
+                style: AppTheme.heading3,
               ),
             ),
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.spacingL),
               child: Column(
                 children: [
                   // Nom
                   TextFormField(
                     controller: _nameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Nom',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -487,18 +432,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppTheme.spacingL),
                   
                   // Email (modifiable)
                   TextFormField(
                     controller: _emailController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Email',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
@@ -512,20 +452,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppTheme.spacingL),
                   
                   // Bouton Enregistrer
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _isSaving ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[700],
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                       child: _isSaving
                           ? const SizedBox(
                               height: 20,
@@ -535,14 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text(
-                              'Enregistrer',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
+                          : const Text('Enregistrer'),
                     ),
                   ),
                 ],
@@ -556,41 +482,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildPasswordForm() {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Form(
         key: _passwordFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.spacingL),
               child: Text(
                 'Modifier mon mot de passe',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
+                style: AppTheme.heading3,
               ),
             ),
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.spacingL),
               child: Column(
                 children: [
                   // Ancien mot de passe
                   TextFormField(
                     controller: _oldPasswordController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Ancien mot de passe',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -601,18 +514,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppTheme.spacingL),
                   
                   // Nouveau mot de passe
                   TextFormField(
                     controller: _newPasswordController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Nouveau mot de passe',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -626,18 +534,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppTheme.spacingL),
                   
                   // Confirmer le mot de passe
                   TextFormField(
                     controller: _confirmPasswordController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Confirmer le mot de passe',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -651,20 +554,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppTheme.spacingL),
                   
                   // Bouton Enregistrer
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _isChangingPassword ? null : _changePassword,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[700],
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                       child: _isChangingPassword
                           ? const SizedBox(
                               height: 20,
@@ -674,14 +570,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text(
-                              'Enregistrer',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
+                          : const Text('Enregistrer'),
                     ),
                   ),
                 ],

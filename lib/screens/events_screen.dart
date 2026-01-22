@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
+import '../theme/app_theme.dart';
 
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
@@ -93,25 +94,15 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppTheme.backgroundPrimary,
       drawer: const AppDrawer(),
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Événements',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('Événements', style: AppTheme.heading2),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.blue[700],
-          unselectedLabelColor: Colors.grey[600],
-          indicatorColor: Colors.blue[700],
+          labelColor: AppTheme.accentBlue,
+          unselectedLabelColor: AppTheme.textSecondary,
+          indicatorColor: AppTheme.accentBlue,
           tabs: const [
             Tab(text: 'Événements'),
             Tab(text: 'Mes Événements'),
@@ -123,8 +114,8 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         children: [
           // Barre de recherche
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
+            color: AppTheme.backgroundSecondary,
+            padding: const EdgeInsets.all(AppTheme.spacingL),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -139,11 +130,6 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                         },
                       )
                     : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[100],
               ),
               onChanged: (_) => _performSearch(), // Recherche en direct
               onSubmitted: (_) => _performSearch(),
@@ -162,15 +148,12 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                             Icon(
                               Icons.event_busy,
                               size: 64,
-                              color: Colors.grey[400],
+                              color: AppTheme.textHint,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppTheme.spacingL),
                             Text(
                               'Aucun événement trouvé',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
+                              style: AppTheme.bodyLarge,
                             ),
                           ],
                         ),
@@ -194,37 +177,31 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
 
   Widget _buildEventCard(Event event) {
     return Card(
-      elevation: 1,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300, width: 2),
-      ),
+      margin: const EdgeInsets.only(bottom: AppTheme.spacingL),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.spacingL),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // En-tête avec titre
             Text(
               event.name.toUpperCase(),
-              style: TextStyle(
+              style: AppTheme.heading3.copyWith(
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[700],
+                color: AppTheme.accentBlue,
               ),
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: AppTheme.spacingM),
             
             // Dates
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                Icon(Icons.calendar_today, size: 14, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
                 Text(
                   'Créé le: ${event.createdAt ?? 'N/A'}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: AppTheme.bodySmall.copyWith(fontSize: 12),
                 ),
               ],
             ),
@@ -233,13 +210,13 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(Icons.alarm, size: 14, color: Colors.grey[600]),
+                  Icon(Icons.alarm, size: 14, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Text(
                     'Deadline: ${event.deadline}',
-                    style: TextStyle(
+                    style: AppTheme.bodySmall.copyWith(
                       fontSize: 12,
-                      color: event.deadlinePassed ? Colors.red : Colors.green,
+                      color: event.deadlinePassed ? AppTheme.accentRed : AppTheme.accentGreen,
                       fontWeight: event.deadlinePassed ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
@@ -248,28 +225,28 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
             ],
             
             // Créateur
-            const SizedBox(height: 12),
+            const SizedBox(height: AppTheme.spacingM),
             Row(
               children: [
-                Icon(Icons.person, size: 14, color: Colors.grey[600]),
+                Icon(Icons.person, size: 14, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
                 Text(
                   'Créé par: ${event.creator.name}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: AppTheme.bodySmall.copyWith(fontSize: 12),
                 ),
               ],
             ),
             
             // Utilisateurs affectés
             if (event.assignedUsers.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppTheme.spacingM),
               Row(
                 children: [
-                  Icon(Icons.people, size: 14, color: Colors.grey[600]),
+                  Icon(Icons.people, size: 14, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Text(
                     'Affectés: ',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: AppTheme.bodySmall.copyWith(fontSize: 12),
                   ),
                 ],
               ),
@@ -281,14 +258,14 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.blue[100],
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.accentBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Text(
                       user.name,
-                      style: TextStyle(
+                      style: AppTheme.bodySmall.copyWith(
                         fontSize: 11,
-                        color: Colors.blue[900],
+                        color: AppTheme.accentBlue,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -308,11 +285,11 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: _hexToColor(tag.color),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Text(
                       tag.name,
-                      style: const TextStyle(
+                      style: AppTheme.bodySmall.copyWith(
                         fontSize: 11,
                         color: Colors.white,
                         fontWeight: FontWeight.w500,
@@ -335,7 +312,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       buffer.write(hexString.replaceFirst('#', ''));
       return Color(int.parse(buffer.toString(), radix: 16));
     } catch (e) {
-      return Colors.grey;
+      return AppTheme.textSecondary;
     }
   }
 }

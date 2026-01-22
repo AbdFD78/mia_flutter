@@ -3,7 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/auth_provider.dart';
+import 'services/push_notification_service.dart';
+import 'theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/clients_screen.dart';
@@ -14,7 +18,34 @@ import 'screens/activities_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/coming_soon_screen.dart';
 
-void main() {
+/// Handler pour les notifications en arrière-plan (doit être top-level)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('📬 Notification en arrière-plan: ${message.notification?.title}');
+  // Traitement en arrière-plan si nécessaire
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialiser Firebase
+  try {
+    await Firebase.initializeApp();
+    print('✅ Firebase initialisé');
+    
+    // Configurer le handler pour les notifications en arrière-plan
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    
+    // Initialiser le service de notifications push
+    await PushNotificationService().initialize();
+  } catch (e) {
+    print('⚠️ Erreur lors de l\'initialisation de Firebase: $e');
+    print('   Les notifications push ne fonctionneront pas sans Firebase configuré');
+    print('   Consultez FIREBASE_SETUP.md pour la configuration');
+    // L'application peut continuer à fonctionner sans les notifications push
+  }
+  
   runApp(const MyApp());
 }
 
@@ -29,10 +60,7 @@ class MyApp extends StatelessWidget {
         builder: (context, authProvider, _) {
           return MaterialApp.router(
             title: 'Mia CRM',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-              useMaterial3: true,
-            ),
+            theme: AppTheme.lightTheme,
             routerConfig: _createRouter(authProvider),
             debugShowCheckedModeBanner: false,
           );

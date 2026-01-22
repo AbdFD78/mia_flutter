@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
 
 class UserDetailScreen extends StatelessWidget {
   final User user;
@@ -11,19 +12,9 @@ class UserDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: AppTheme.backgroundPrimary,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: Text(
-          user.name,
-          style: const TextStyle(
-            color: Colors.black87,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: Text(user.name, style: AppTheme.heading2),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -31,7 +22,7 @@ class UserDetailScreen extends StatelessWidget {
             // En-tête avec avatar
             _buildHeader(),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.spacingL),
             
             // Informations de l'utilisateur
             _buildInfoSection(),
@@ -44,57 +35,52 @@ class UserDetailScreen extends StatelessWidget {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.all(24),
+      color: AppTheme.backgroundSecondary,
+      padding: const EdgeInsets.all(AppTheme.spacingXXL),
       child: Column(
         children: [
           // Avatar
           CircleAvatar(
             radius: 50,
-            backgroundColor: const Color(0xFFff6b9d).withOpacity(0.1),
+            backgroundColor: AppTheme.accentBlue.withOpacity(0.1),
             backgroundImage: user.picture != null
                 ? NetworkImage(user.picture!)
                 : null,
             child: user.picture == null
-                ? const Icon(
+                ? Icon(
                     Icons.person,
                     size: 50,
-                    color: Color(0xFFff6b9d),
+                    color: AppTheme.accentBlue,
                   )
                 : null,
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTheme.spacingL),
           
           // Nom
           Text(
             user.name,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+            style: AppTheme.heading1,
             textAlign: TextAlign.center,
           ),
           
-          const SizedBox(height: 8),
+          const SizedBox(height: AppTheme.spacingS),
           
           // Type d'utilisateur
           if (user.userTypeName != null)
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
+                horizontal: AppTheme.spacingL,
+                vertical: AppTheme.spacingS,
               ),
               decoration: BoxDecoration(
-                color: const Color(0xFFff6b9d),
-                borderRadius: BorderRadius.circular(20),
+                color: AppTheme.accentBlue,
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
               ),
               child: Text(
                 user.userTypeName!,
-                style: const TextStyle(
+                style: AppTheme.bodyMedium.copyWith(
                   color: Colors.white,
-                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -105,46 +91,40 @@ class UserDetailScreen extends StatelessWidget {
   }
 
   Widget _buildInfoSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Informations',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacingXL),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Informations',
+              style: AppTheme.heading3,
             ),
-          ),
-          const SizedBox(height: 20),
-          
-          _buildDetailRow('ID', user.id.toString()),
-          const SizedBox(height: 16),
-          
-          _buildDetailRow('Nom', user.name),
-          const SizedBox(height: 16),
-          
-          _buildDetailRow('Email', user.email),
-          const SizedBox(height: 16),
-          
-          _buildDetailRow('Téléphone', user.telephone ?? 'Non défini'),
-          const SizedBox(height: 16),
-          
-          if (user.clientName != null) ...[
-            _buildDetailRow('Client', user.clientName!),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.spacingXL),
+            
+            _buildDetailRow('ID', user.id.toString()),
+            const SizedBox(height: AppTheme.spacingL),
+            
+            _buildDetailRow('Nom', user.name),
+            const SizedBox(height: AppTheme.spacingL),
+            
+            _buildDetailRow('Email', user.email),
+            const SizedBox(height: AppTheme.spacingL),
+            
+            _buildDetailRow('Téléphone', user.telephone ?? 'Non défini'),
+            const SizedBox(height: AppTheme.spacingL),
+            
+            if (user.clientName != null) ...[
+              _buildDetailRow('Client', user.clientName!),
+              const SizedBox(height: AppTheme.spacingL),
+            ],
+            
+            if (user.userTypeName != null)
+              _buildDetailRow('Type d\'utilisateur', user.userTypeName!),
           ],
-          
-          if (user.userTypeName != null)
-            _buildDetailRow('Type d\'utilisateur', user.userTypeName!),
-        ],
+        ),
       ),
     );
   }
@@ -155,33 +135,28 @@ class UserDetailScreen extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
+          style: AppTheme.bodySmall.copyWith(
             fontWeight: FontWeight.w600,
-            color: Colors.grey[600],
           ),
         ),
         const SizedBox(height: 6),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
+            horizontal: AppTheme.spacingL,
+            vertical: AppTheme.spacingM,
           ),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.backgroundPrimary,
+            borderRadius: BorderRadius.circular(AppTheme.radiusS),
             border: Border.all(
-              color: Colors.grey[200]!,
+              color: AppTheme.borderLight,
               width: 1,
             ),
           ),
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 15,
-              color: Colors.black87,
-            ),
+            style: AppTheme.bodyMedium,
           ),
         ),
       ],
