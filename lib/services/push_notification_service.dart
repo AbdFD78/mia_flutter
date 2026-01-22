@@ -164,10 +164,8 @@ class PushNotificationService {
         return false;
       }
       
-      // Utiliser l'URL de base sans /api car la route est dans web.php
-      final baseUrl = AppConfig.isProduction
-          ? 'https://crm.model-intelligence-agency.com'
-          : 'http://10.0.2.2:8000';
+      // Utiliser l'endpoint API (pas de CSRF requis)
+      final baseUrl = AppConfig.baseUrl; // Déjà contient /api
       
       final response = await http.post(
         Uri.parse('$baseUrl/push/register-device'),
@@ -237,9 +235,8 @@ class PushNotificationService {
       final token = await _authService.getToken();
       if (token == null) return false;
       
-      final baseUrl = AppConfig.isProduction
-          ? 'https://crm.model-intelligence-agency.com'
-          : 'http://10.0.2.2:8000';
+      // Utiliser l'endpoint API (pas de CSRF requis)
+      final baseUrl = AppConfig.baseUrl; // Déjà contient /api
       
       final response = await http.post(
         Uri.parse('$baseUrl/push/disable-device'),
