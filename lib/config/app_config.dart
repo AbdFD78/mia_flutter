@@ -28,7 +28,11 @@ class AppConfig {
   
   // Construire une URL complète pour une ressource
   static String getResourceUrl(String path) {
-    // Si le path commence par '/', on le garde, sinon on l'ajoute
+    // Si l'URL est déjà complète (commence par http:// ou https://), la retourner telle quelle
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    // Sinon, construire l'URL complète
     final cleanPath = path.startsWith('/') ? path : '/$path';
     return '$serverUrl$cleanPath';
   }
