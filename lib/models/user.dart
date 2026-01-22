@@ -64,4 +64,29 @@ class User {
   factory User.fromJsonString(String jsonString) {
     return User.fromJson(jsonDecode(jsonString));
   }
+
+  // Créer une copie avec des valeurs modifiées
+  User copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? telephone,
+    String? picture,
+    int? clientId,
+    String? clientName,
+    int? userTypeId,
+    String? userTypeName,
+  }) {
+    return User(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      telephone: telephone ?? this.telephone,
+      picture: picture ?? this.picture,
+      clientId: clientId ?? this.clientId,
+      clientName: clientName ?? this.clientName,
+      userTypeId: userTypeId ?? this.userTypeId,
+      userTypeName: userTypeName ?? this.userTypeName,
+    );
+  }
 }

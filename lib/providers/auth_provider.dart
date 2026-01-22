@@ -133,4 +133,20 @@ class AuthProvider with ChangeNotifier {
   Future<String?> getToken() async {
     return await _authService.getToken();
   }
+
+  /// Mettre à jour les informations de l'utilisateur
+  void updateUser({
+    String? name,
+    String? email,
+    String? picture,
+  }) {
+    if (_user != null) {
+      _user = _user!.copyWith(
+        name: name,
+        email: email,
+        picture: picture,
+      );
+      notifyListeners();
+    }
+  }
 }

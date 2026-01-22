@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../models/campaign.dart';
+import '../config/app_config.dart';
 
 class CampaignEditScreen extends StatefulWidget {
   final Campaign campaign;
@@ -384,7 +385,7 @@ class _CampaignEditScreenState extends State<CampaignEditScreen> {
                                   child: _selectedImage != null
                                       ? Image.file(_selectedImage!, fit: BoxFit.cover)
                                       : Image.network(
-                                          'http://10.0.2.2:8000/${_currentImageUrl!}',
+                                          AppConfig.getResourceUrl(_currentImageUrl!),
                                           fit: BoxFit.cover,
                                           errorBuilder: (context, error, stackTrace) {
                                             return const Center(child: Icon(Icons.broken_image, size: 48));

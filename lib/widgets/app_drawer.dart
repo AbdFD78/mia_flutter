@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+import '../config/app_config.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -107,7 +108,7 @@ class AppDrawer extends StatelessWidget {
                   radius: 32,
                   backgroundColor: Colors.grey[300],
                   backgroundImage: user?.picture != null
-                      ? NetworkImage('http://10.0.2.2:8000${user!.picture}')
+                      ? NetworkImage(AppConfig.getResourceUrl(user!.picture!))
                       : null,
                   child: user?.picture == null
                       ? const Icon(Icons.person, size: 40, color: Colors.grey)

@@ -8,13 +8,14 @@ import '../models/client.dart';
 import '../models/user.dart';
 import '../models/campaign.dart';
 import '../models/campaign_detail.dart';
+import '../config/app_config.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  // URL de base de ton API Laravel
-  // IMPORTANT : Depuis l'émulateur Android, "localhost" ne fonctionne pas
-  // On utilise 10.0.2.2 qui est l'IP spéciale de l'émulateur vers le PC hôte
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
+  // URL de base de l'API (configurée via AppConfig)
+  // PRODUCTION: https://crm.model-intelligence-agency.com/api
+  // DÉVELOPPEMENT: http://10.0.2.2:8000/api (émulateur Android)
+  static String get baseUrl => AppConfig.baseUrl;
   
   final AuthService _authService = AuthService();
 
@@ -586,6 +587,236 @@ class ApiService {
       }
     } catch (e) {
       print('Erreur: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer les activités (suivis clients et événements) avec filtres
+  Future<List<Map<String, dynamic>>> getActivities({
+    String type = 'all', // 'all', 'suivie', 'event'
+    String? authorId,
+    String? clientId,
+    String? dateFrom,
+    String? dateTo,
+    String? search,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      
+      var url = '$baseUrl/activities?type=$type';
+      if (authorId != null && authorId.isNotEmpty) {
+        url += '&author_id=$authorId';
+      }
+      if (clientId != null && clientId.isNotEmpty) {
+        url += '&client_id=$clientId';
+      }
+      if (dateFrom != null && dateFrom.isNotEmpty) {
+        url += '&date_from=$dateFrom';
+      }
+      if (dateTo != null && dateTo.isNotEmpty) {
+        url += '&date_to=$dateTo';
+      }
+      if (search != null && search.isNotEmpty) {
+        url += '&search=${Uri.encodeComponent(search)}';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          return List<Map<String, dynamic>>.from(jsonData['data']);
+        }
+        return [];
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des activités: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer la liste des auteurs (utilisateurs) pour les filtres d'activités
+  Future<List<Map<String, dynamic>>> getActivityAuthors() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/activities/authors'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          return List<Map<String, dynamic>>.from(jsonData['data']);
+        }
+        return [];
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des auteurs: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer la liste des clients pour les filtres d'activités
+  Future<List<Map<String, dynamic>>> getActivityClients() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/activities/clients'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          return List<Map<String, dynamic>>.from(jsonData['data']);
+        }
+        return [];
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des clients: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer les informations du profil utilisateur
+  Future<Map<String, dynamic>> getProfile() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          return jsonData['data'];
+        }
+        throw Exception('Données de profil invalides');
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération du profil: $e');
+      rethrow;
+    }
+  }
+
+  /// Mettre à jour le profil utilisateur (nom et/ou email)
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? email,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      
+      final Map<String, dynamic> body = {};
+      if (name != null && name.isNotEmpty) {
+        body['name'] = name;
+      }
+      if (email != null && email.isNotEmpty) {
+        body['email'] = email;
+      }
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/profile'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true) {
+          return jsonData['data'] ?? {};
+        }
+        throw Exception(jsonData['message'] ?? 'Erreur lors de la mise à jour');
+      } else {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['message'] ?? 'Erreur ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erreur lors de la mise à jour du profil: $e');
+      rethrow;
+    }
+  }
+
+  /// Changer le mot de passe
+  Future<void> updatePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.put(
+        Uri.parse('$baseUrl/profile/password'),
+        headers: headers,
+        body: jsonEncode({
+          'old_password': oldPassword,
+          'password': newPassword,
+          'password_confirmation': confirmPassword,
+        }),
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] != true) {
+          throw Exception(jsonData['message'] ?? 'Erreur lors du changement de mot de passe');
+        }
+      } else {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['message'] ?? 'Erreur ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erreur lors du changement de mot de passe: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupérer les membres de l'équipe (même client_id)
+  Future<List<Map<String, dynamic>>> getTeamMembers() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/profile/team'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          return List<Map<String, dynamic>>.from(jsonData['data']);
+        }
+        return [];
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération de l\'équipe: $e');
       rethrow;
     }
   }

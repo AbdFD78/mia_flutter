@@ -10,6 +10,8 @@ import 'screens/clients_screen.dart';
 import 'screens/users_screen.dart';
 import 'screens/campaigns_screen.dart';
 import 'screens/events_screen.dart';
+import 'screens/activities_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/coming_soon_screen.dart';
 
 void main() {
@@ -83,7 +85,7 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/activities',
-          builder: (context, state) => const ComingSoonScreen(title: 'Suivies Clients'),
+          builder: (context, state) => const ActivitiesScreen(),
         ),
         // Campagnes
         GoRoute(
@@ -158,7 +160,7 @@ class MyApp extends StatelessWidget {
         // Profil
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const ComingSoonScreen(title: 'Mon Profil'),
+          builder: (context, state) => const ProfileScreen(),
         ),
       ],
       // Gestion des erreurs de route

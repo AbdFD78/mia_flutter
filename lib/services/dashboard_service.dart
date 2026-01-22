@@ -2,10 +2,11 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import 'auth_service.dart';
 
 class DashboardService {
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
+  static String get baseUrl => AppConfig.baseUrl;
   final AuthService _authService = AuthService();
 
   /// Récupérer les headers avec authentification
