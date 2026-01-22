@@ -820,4 +820,60 @@ class ApiService {
       rethrow;
     }
   }
+
+  /// Récupérer les devices de l'utilisateur pour les notifications push
+  Future<List<Map<String, dynamic>>> getPushDevices() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/push/devices'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        if (jsonData['success'] == true && jsonData['devices'] != null) {
+          return List<Map<String, dynamic>>.from(jsonData['devices']);
+        }
+        return [];
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des devices: $e');
+      rethrow;
+    }
+  }
+
+  /// Désactiver les notifications push pour un device
+  Future<bool> disablePushDevice({
+    String? deviceFingerprint,
+    String? fcmToken,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/push/disable-device'),
+        headers: headers,
+        body: jsonEncode({
+          if (deviceFingerprint != null) 'device_fingerprint': deviceFingerprint,
+          if (fcmToken != null) 'fcm_token': fcmToken,
+        }),
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return jsonData['success'] == true;
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la désactivation du device: $e');
+      rethrow;
+    }
+  }
 }

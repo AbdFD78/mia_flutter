@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/push_notification_service.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../widgets/app_drawer.dart';
@@ -37,11 +38,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isSaving = false;
   bool _isChangingPassword = false;
   
+  // État des notifications push
+  bool _pushNotificationsEnabled = false;
+  bool _isLoadingPushDevices = false;
+  bool _isTogglingPush = false;
+  Map<String, dynamic>? _currentDevice;
+  
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _loadTeam();
+    _loadPushDevices();
   }
 
   @override
@@ -358,6 +366,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// Charger l'état des devices push
+  Future<void> _loadPushDevices() async {
+    setState(() {
+      _isLoadingPushDevices = true;
+    });
+
+    try {
+      final devices = await _apiService.getPushDevices();
+      
+      // Trouver le device mobile actuel (actif)
+      Map<String, dynamic>? mobileDevice;
+      try {
+        mobileDevice = devices.firstWhere(
+          (device) => device['device_type'] == 'mobile' && device['is_active'] == true,
+        ) as Map<String, dynamic>?;
+      } catch (e) {
+        // Aucun device mobile actif trouvé
+        mobileDevice = null;
+      }
+      
+      setState(() {
+        _currentDevice = mobileDevice;
+        _pushNotificationsEnabled = mobileDevice != null 
+            ? (mobileDevice['is_active'] == true && mobileDevice['notifications_enabled'] == true)
+            : false;
+        _isLoadingPushDevices = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingPushDevices = false;
+      });
+      print('Erreur lors du chargement des devices push: $e');
+    }
+  }
+
+  /// Toggle les notifications push
+  Future<void> _togglePushNotifications(bool enabled) async {
+    setState(() {
+      _isTogglingPush = true;
+    });
+
+    try {
+      if (enabled) {
+        // Activer : enregistrer le device
+        final success = await PushNotificationService().registerDevice();
+        if (success) {
+          // Recharger l'état
+          await _loadPushDevices();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Notifications push activées'),
+                backgroundColor: AppTheme.accentGreen,
+              ),
+            );
+          }
+        } else {
+          throw Exception('Impossible d\'enregistrer le device');
+        }
+      } else {
+        // Désactiver : supprimer le device
+        if (_currentDevice != null) {
+          final deviceFingerprint = _currentDevice!['device_fingerprint'];
+          final fcmToken = PushNotificationService().fcmToken;
+          
+          final success = await _apiService.disablePushDevice(
+            deviceFingerprint: deviceFingerprint,
+            fcmToken: fcmToken,
+          );
+          
+          if (success) {
+            // Recharger l'état
+            await _loadPushDevices();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Notifications push désactivées'),
+                  backgroundColor: AppTheme.accentGreen,
+                ),
+              );
+            }
+          } else {
+            throw Exception('Impossible de désactiver le device');
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppTheme.accentRed,
+          ),
+        );
+      }
+      // Restaurer l'état précédent en cas d'erreur
+      setState(() {
+        _pushNotificationsEnabled = !enabled;
+      });
+    } finally {
+      setState(() {
+        _isTogglingPush = false;
+      });
+    }
+  }
+
   Widget _buildSettingsSection() {
     return Card(
       child: Column(
@@ -373,22 +487,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(AppTheme.spacingL),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Notifications push',
-                  style: AppTheme.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w600,
+            child: _isLoadingPushDevices
+                ? const Center(child: CircularProgressIndicator())
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  _pushNotificationsEnabled 
+                                      ? Icons.notifications_active 
+                                      : Icons.notifications_off,
+                                  color: _pushNotificationsEnabled 
+                                      ? AppTheme.accentBlue 
+                                      : AppTheme.textHint,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: AppTheme.spacingS),
+                                Text(
+                                  'Notifications push',
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppTheme.spacingXS),
+                            Text(
+                              _pushNotificationsEnabled
+                                  ? 'Recevoir des notifications push sur cet appareil'
+                                  : 'Activer les notifications push sur cet appareil',
+                              style: AppTheme.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_isTogglingPush)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Switch(
+                          value: _pushNotificationsEnabled,
+                          onChanged: _togglePushNotifications,
+                          activeColor: AppTheme.accentBlue,
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: AppTheme.spacingL),
-                Text(
-                  'La gestion des notifications push sera disponible prochainement.',
-                  style: AppTheme.caption,
-                ),
-              ],
-            ),
           ),
         ],
       ),

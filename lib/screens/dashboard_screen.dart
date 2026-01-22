@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../providers/auth_provider.dart';
 import '../services/dashboard_service.dart';
+import '../services/push_notification_service.dart';
 import '../widgets/app_drawer.dart';
 import '../theme/app_theme.dart';
 
@@ -30,6 +31,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboard();
+    // Initialiser le service de notifications push une fois que le Navigator est disponible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushNotificationService().setContext(context);
+      PushNotificationService().initialize();
+    });
   }
 
   Future<void> _loadDashboard() async {

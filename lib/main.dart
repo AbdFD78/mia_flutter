@@ -36,22 +36,23 @@ void main() async {
     
     // Configurer le handler pour les notifications en arrière-plan
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    
-    // Initialiser le service de notifications push
-    await PushNotificationService().initialize();
   } catch (e) {
     print('⚠️ Erreur lors de l\'initialisation de Firebase: $e');
     print('   Les notifications push ne fonctionneront pas sans Firebase configuré');
-    print('   Consultez FIREBASE_SETUP.md pour la configuration');
     // L'application peut continuer à fonctionner sans les notifications push
   }
   
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(

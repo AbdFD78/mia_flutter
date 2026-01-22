@@ -6,7 +6,9 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import 'auth_service.dart';
 
@@ -22,13 +24,108 @@ class PushNotificationService {
   
   String? _fcmToken;
   bool _isInitialized = false;
+  BuildContext? _context;
+  static const String _permissionDialogShownKey = 'push_notification_dialog_shown';
+  
+  /// Définir le contexte pour afficher les dialogues
+  void setContext(BuildContext context) {
+    if (_context == null) {
+      _context = context;
+    }
+  }
+  
+  /// Afficher un dialogue personnalisé en français avant de demander les permissions
+  Future<bool> _showPermissionDialog() async {
+    if (_context == null) {
+      // Si pas de contexte, demander directement les permissions
+      return true;
+    }
+    
+    // Vérifier que le contexte a un Navigator
+    try {
+      Navigator.of(_context!);
+    } catch (e) {
+      // Pas de Navigator disponible, demander directement les permissions
+      print('⚠️ Navigator non disponible, demande directe des permissions');
+      return true;
+    }
+    
+    final result = await showDialog<bool>(
+      context: _context!,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Activer les notifications'),
+          content: const Text(
+            'Souhaitez-vous recevoir des notifications push pour être informé en temps réel des événements et mises à jour importantes ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Plus tard'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Activer'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    return result ?? false;
+  }
   
   /// Initialiser le service de notifications push
   Future<void> initialize() async {
     if (_isInitialized) return;
     
     try {
-      // Demander les permissions
+      // Vérifier d'abord l'état actuel des permissions
+      NotificationSettings currentSettings = await _messaging.getNotificationSettings();
+      
+      // Si les permissions sont déjà accordées ou provisoires, ne pas afficher le dialogue
+      if (currentSettings.authorizationStatus == AuthorizationStatus.authorized ||
+          currentSettings.authorizationStatus == AuthorizationStatus.provisional) {
+        print('✅ Permissions déjà accordées, pas besoin de dialogue');
+        await _getFCMToken();
+        _setupNotificationHandlers();
+        _isInitialized = true;
+        return;
+      }
+      
+      // Si les permissions sont refusées, ne pas afficher le dialogue non plus
+      if (currentSettings.authorizationStatus == AuthorizationStatus.denied) {
+        print('❌ Permissions refusées, pas de dialogue');
+        return;
+      }
+      
+      // Vérifier si le dialogue a déjà été affiché (première fois seulement)
+      final prefs = await SharedPreferences.getInstance();
+      final dialogAlreadyShown = prefs.getBool(_permissionDialogShownKey) ?? false;
+      
+      bool userWantsNotifications = true;
+      
+      // Afficher le dialogue seulement si c'est la première fois
+      if (!dialogAlreadyShown) {
+        userWantsNotifications = await _showPermissionDialog();
+        // Mémoriser que le dialogue a été affiché
+        await prefs.setBool(_permissionDialogShownKey, true);
+      }
+      
+      if (!userWantsNotifications) {
+        print('⚠️ L\'utilisateur a refusé les notifications');
+        return;
+      }
+      
+      // Demander les permissions système
+      
+      if (!userWantsNotifications) {
+        print('⚠️ L\'utilisateur a refusé les notifications');
+        return;
+      }
+      
+      // Demander les permissions système
       NotificationSettings settings = await _messaging.requestPermission(
         alert: true,
         announcement: false,
