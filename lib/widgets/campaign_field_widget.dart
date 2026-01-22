@@ -466,6 +466,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               return Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       isSelected ? Icons.check_circle : Icons.circle_outlined,
@@ -473,12 +474,16 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                       color: isSelected ? Colors.blue : Colors.grey[400],
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      entry.value,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isSelected ? Colors.blue[700] : Colors.grey[600],
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    Expanded(
+                      child: Text(
+                        entry.value,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
