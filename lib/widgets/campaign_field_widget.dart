@@ -406,10 +406,67 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
       });
     }
     
-    // La valeur sélectionnée (string simple comme "3")
-    final String? selectedValue = field.value?.toString();
-    final String displayValue = selectedValue != null && availableOptions.containsKey(selectedValue)
-        ? availableOptions[selectedValue]!
+    // La valeur sélectionnée - gérer différents formats (string, int, JSON)
+    String? selectedValue;
+    if (field.value != null) {
+      if (field.value is String) {
+        // Essayer de parser si c'est un JSON
+        try {
+          final decoded = json.decode(field.value as String);
+          if (decoded is List && decoded.isNotEmpty) {
+            selectedValue = decoded.first.toString();
+          } else if (decoded is Map) {
+            // Si c'est un objet, prendre la première valeur
+            selectedValue = decoded.values.first?.toString();
+          } else {
+            selectedValue = decoded.toString();
+          }
+        } catch (e) {
+          // Ce n'est pas du JSON, utiliser directement
+          selectedValue = field.value.toString().trim();
+        }
+      } else {
+        // Pour int, double, etc.
+        selectedValue = field.value.toString().trim();
+      }
+    }
+    
+    // Normaliser la clé pour la comparaison (enlever les espaces)
+    final String? normalizedSelectedValue = selectedValue?.trim();
+    
+    // Debug temporaire
+    print('🔍 Select Field Debug - ${field.label}:');
+    print('  - field.value: ${field.value} (type: ${field.value.runtimeType})');
+    print('  - normalizedSelectedValue: $normalizedSelectedValue');
+    print('  - availableOptions keys: ${availableOptions.keys.toList()}');
+    
+    // Chercher la valeur dans les options (comparaison flexible)
+    String? matchedKey;
+    if (normalizedSelectedValue != null) {
+      // Essayer une correspondance exacte
+      if (availableOptions.containsKey(normalizedSelectedValue)) {
+        matchedKey = normalizedSelectedValue;
+        print('  - ✅ Match exact trouvé: $matchedKey');
+      } else {
+        // Essayer de trouver par valeur (si la clé ne correspond pas)
+        for (var entry in availableOptions.entries) {
+          if (entry.key.trim() == normalizedSelectedValue || 
+              entry.value.trim() == normalizedSelectedValue) {
+            matchedKey = entry.key;
+            print('  - ✅ Match flexible trouvé: $matchedKey (valeur: ${entry.value})');
+            break;
+          }
+        }
+        if (matchedKey == null) {
+          print('  - ❌ Aucun match trouvé');
+        }
+      }
+    } else {
+      print('  - ⚠️ normalizedSelectedValue est null');
+    }
+    
+    final String displayValue = matchedKey != null && availableOptions.containsKey(matchedKey)
+        ? availableOptions[matchedKey]!
         : 'Aucune sélection';
     
     return _buildCardField(
@@ -441,8 +498,8 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     displayValue,
                     style: TextStyle(
                       fontSize: 15,
-                      color: selectedValue != null ? Colors.black87 : Colors.grey,
-                      fontWeight: selectedValue != null ? FontWeight.w500 : FontWeight.normal,
+                      color: matchedKey != null ? Colors.black87 : Colors.grey,
+                      fontWeight: matchedKey != null ? FontWeight.w500 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -462,7 +519,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             ),
             const SizedBox(height: 6),
             ...availableOptions.entries.map((entry) {
-              final isSelected = selectedValue == entry.key;
+              final isSelected = matchedKey != null && (matchedKey == entry.key || normalizedSelectedValue == entry.key);
               return Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Row(
