@@ -306,6 +306,7 @@ class _CampaignEditScreenState extends State<CampaignEditScreen> {
                         
                         DropdownButtonFormField<int>(
                           value: _selectedClientId,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Client *',
                             border: OutlineInputBorder(),
@@ -314,7 +315,10 @@ class _CampaignEditScreenState extends State<CampaignEditScreen> {
                           items: _clients.map((client) {
                             return DropdownMenuItem<int>(
                               value: client['id'] as int,
-                              child: Text(client['name'] as String),
+                              child: Text(
+                                client['name'] as String,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
                           onChanged: (value) {
@@ -333,6 +337,7 @@ class _CampaignEditScreenState extends State<CampaignEditScreen> {
                         
                         DropdownButtonFormField<int>(
                           value: _selectedConfigId,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Configuration *',
                             border: OutlineInputBorder(),
@@ -341,7 +346,10 @@ class _CampaignEditScreenState extends State<CampaignEditScreen> {
                           items: _configs.map((config) {
                             return DropdownMenuItem<int>(
                               value: config['id'] as int,
-                              child: Text(config['name'] as String),
+                              child: Text(
+                                config['name'] as String,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
                           onChanged: (value) {
