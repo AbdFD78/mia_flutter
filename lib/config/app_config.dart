@@ -1,10 +1,16 @@
 // lib/config/app_config.dart
 
 class AppConfig {
-  // Mode de l'application
-  // true = Production (site en ligne)
-  // false = Développement (localhost)
-  static const bool isProduction = false;
+  // ============================================
+  // CONFIGURATION ENVIRONNEMENT
+  // ============================================
+  // Pour tester en PRODUCTION, changez cette valeur à true
+  // Pour développer en LOCAL, gardez cette valeur à false
+  // 
+  // IMPORTANT: Après avoir changé cette valeur, faites un
+  // "Hot Restart" (R majuscule) ou redémarrez l'application
+  // ============================================
+  static const bool isProduction = true; // ← Changez à true pour la production
   
   // URL de base de l'API
   static String get baseUrl {
