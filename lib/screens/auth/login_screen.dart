@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: NetworkImage(
-              'https://cdn.prod.website-files.com/662b8f8c700704698768006b/6641fa68239612ae2ea2ac17_Rose.png',
+              'https://cdn.prod.website-files.com/662b8f8c700698768006b/6641fa68239612ae2ea2ac17_Rose.png',
             ),
             fit: BoxFit.cover,
           ),

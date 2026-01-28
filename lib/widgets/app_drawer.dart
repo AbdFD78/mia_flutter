@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../config/app_config.dart';
+import '../theme/app_theme.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -21,58 +22,68 @@ class AppDrawer extends StatelessWidget {
             // Menu principal
             Expanded(
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
                   _buildMenuItem(
                     context,
-                    icon: Icons.account_circle,
+                    icon: Icons.dashboard_outlined,
+                    title: 'Tableau de bord',
+                    route: '/dashboard',
+                  ),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.account_circle_outlined,
                     title: 'Mon Profil',
                     route: '/profile',
                   ),
-                  _buildExpandableMenuItem(
-                    context,
-                    icon: Icons.business_center,
-                    title: 'Clients',
-                    subItems: [
-                      {'title': 'Liste clients', 'route': '/clients', 'icon': 'list'},
-                    ],
-                  ),
-                  _buildExpandableMenuItem(
-                    context,
-                    icon: Icons.group,
-                    title: 'Utilisateurs',
-                    subItems: [
-                      {'title': 'Liste utilisateurs', 'route': '/users', 'icon': 'list'},
-                    ],
-                  ),
-                  _buildExpandableMenuItem(
-                    context,
-                    icon: Icons.campaign,
-                    title: 'Campagnes',
-                    subItems: [
-                      {'title': 'Mes campagnes', 'route': '/campagnes', 'icon': 'list'},
-                    ],
-                  ),
-                  _buildExpandableMenuItem(
-                    context,
-                    icon: Icons.event,
-                    title: 'Événements',
-                    subItems: [
-                      {'title': 'Liste des événements', 'route': '/events', 'icon': 'list'},
-                      {'title': 'Calendrier', 'route': '/calendar', 'icon': 'calendar'},
-                      {'title': 'Suivies clients', 'route': '/activities', 'icon': 'track'},
-                    ],
-                  ),
-                  const Divider(),
                   _buildMenuItem(
                     context,
-                    icon: Icons.exit_to_app,
-                    title: 'Déconnexion',
-                    onTap: () => _handleLogout(context),
-                    textColor: Colors.red,
+                    icon: Icons.business_center_outlined,
+                    title: 'Clients',
+                    route: '/clients',
+                  ),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.group_outlined,
+                    title: 'Utilisateurs',
+                    route: '/users',
+                  ),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.campaign_outlined,
+                    title: 'Campagnes',
+                    route: '/campagnes',
+                  ),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.event_outlined,
+                    title: 'Liste des événements',
+                    route: '/events',
+                  ),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.calendar_month_outlined,
+                    title: 'Calendrier',
+                    route: '/calendar',
+                  ),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.track_changes_outlined,
+                    title: 'Suivies clients',
+                    route: '/activities',
                   ),
                 ],
               ),
+            ),
+            
+            // Déconnexion en bas, séparée visuellement
+            const Divider(height: 1),
+            _buildMenuItem(
+              context,
+              icon: Icons.exit_to_app_outlined,
+              title: 'Déconnexion',
+              onTap: () => _handleLogout(context),
+              textColor: AppTheme.accentRed,
             ),
           ],
         ),
@@ -85,56 +96,86 @@ class AppDrawer extends StatelessWidget {
       builder: (context, authProvider, child) {
         final user = authProvider.user;
         
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 50, 16, 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.grey[300]!,
-                width: 1,
+        return InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            context.go('/profile');
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 56, 16, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey[300]!,
+                  width: 1,
+                ),
               ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Logo/Photo utilisateur
-              CircleAvatar(
-                radius: 35,
-                backgroundColor: const Color(0xFFff6b9d).withOpacity(0.1),
-                child: CircleAvatar(
-                  radius: 32,
-                  backgroundColor: Colors.grey[300],
-                  backgroundImage: user?.picture != null
-                      ? NetworkImage(AppConfig.getResourceUrl(user!.picture!))
-                      : null,
-                  child: user?.picture == null
-                      ? const Icon(Icons.person, size: 40, color: Colors.grey)
-                      : null,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Photo de profil
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppTheme.accentBlue.withOpacity(0.1),
+                  child: user?.picture != null
+                      ? CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: NetworkImage(AppConfig.getResourceUrl(user!.picture!)),
+                          onBackgroundImageError: (exception, stackTrace) {
+                            // Erreur silencieuse - l'icône par défaut sera affichée
+                          },
+                          child: const Icon(Icons.person, size: 24, color: Colors.grey),
+                        )
+                      : CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Colors.grey[300],
+                          child: const Icon(Icons.person, size: 24, color: Colors.grey),
+                        ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              // Nom de l'utilisateur
-              Text(
-                user?.name ?? 'Utilisateur',
-                style: const TextStyle(
-                  color: Color(0xFF333333),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(width: 12),
+                // Nom et email
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Nom de l'utilisateur (plus visible)
+                      Text(
+                        user?.name ?? 'Utilisateur',
+                        style: const TextStyle(
+                          color: Color(0xFF212121),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      // Email (moins visible)
+                      Text(
+                        user?.email ?? '',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              // Email de l'utilisateur
-              Text(
-                user?.email ?? '',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
+                // Bouton compact "Profil"
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: AppTheme.accentBlue,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -152,108 +193,65 @@ class AppDrawer extends StatelessWidget {
     final currentRoute = GoRouterState.of(context).uri.path;
     final isActive = route != null && currentRoute == route;
 
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isActive ? const Color(0xFFff6b9d) : (textColor ?? Colors.grey[700]),
-        size: 24,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          color: isActive ? const Color(0xFFff6b9d) : (textColor ?? Colors.grey[800]),
+    return Container(
+      height: 52,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap ?? () {
+            Navigator.pop(context);
+            if (route != null) {
+              context.go(route);
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: isActive ? AppTheme.accentBlue.withOpacity(0.1) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: isActive
+                  ? Border(
+                      left: BorderSide(
+                        color: AppTheme.accentBlue,
+                        width: 3,
+                      ),
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                // Icône
+                Icon(
+                  icon,
+                  color: isActive
+                      ? AppTheme.accentBlue
+                      : (textColor ?? Colors.grey[700]),
+                  size: 24,
+                ),
+                const SizedBox(width: 16),
+                // Titre
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: isActive
+                          ? AppTheme.accentBlue
+                          : (textColor ?? Colors.grey[800]),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+            ),
+          ),
         ),
       ),
-      onTap: onTap ?? () {
-        Navigator.pop(context);
-        if (route != null) {
-          context.go(route);
-        }
-      },
-      selected: isActive,
-      selectedTileColor: const Color(0xFFff6b9d).withOpacity(0.1),
-    );
-  }
-
-  Widget _buildExpandableMenuItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required List<Map<String, String>> subItems,
-  }) {
-    return ExpansionTile(
-      leading: Icon(
-        icon,
-        color: Colors.grey[700],
-        size: 24,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.normal,
-          color: Colors.grey[800],
-        ),
-      ),
-      childrenPadding: EdgeInsets.zero,
-      children: subItems.map((item) {
-        return _buildSubMenuItem(
-          context,
-          title: item['title']!,
-          route: item['route']!,
-          iconType: item['icon']!,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildSubMenuItem(
-    BuildContext context, {
-    required String title,
-    required String route,
-    required String iconType,
-  }) {
-    final currentRoute = GoRouterState.of(context).uri.path;
-    final isActive = currentRoute == route;
-
-    // Choisir l'icône selon le type
-    IconData iconData;
-    switch (iconType) {
-      case 'list':
-        iconData = Icons.list_alt;
-        break;
-      case 'calendar':
-        iconData = Icons.calendar_month;
-        break;
-      case 'track':
-        iconData = Icons.track_changes;
-        break;
-      default:
-        iconData = Icons.arrow_right;
-    }
-
-    return ListTile(
-      leading: Icon(
-        iconData,
-        size: 20,
-        color: isActive ? const Color(0xFFff6b9d) : Colors.grey[600],
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          color: isActive ? const Color(0xFFff6b9d) : Colors.grey[700],
-        ),
-      ),
-      onTap: () {
-        Navigator.pop(context);
-        context.go(route);
-      },
-      selected: isActive,
-      selectedTileColor: const Color(0xFFff6b9d).withOpacity(0.1),
     );
   }
 
