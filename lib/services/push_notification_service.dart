@@ -237,18 +237,45 @@ class PushNotificationService {
   String? get fcmToken => _fcmToken;
 
   /// Enregistrer le device sur le serveur Laravel
+  /// Vérifier et initialiser Firebase si nécessaire
+  Future<void> _ensureFirebaseInitialized() async {
+    try {
+      // Vérifier si Firebase est déjà initialisé en essayant d'accéder à une app
+      Firebase.app();
+      print('✅ Firebase déjà initialisé');
+    } catch (e) {
+      // Firebase n'est pas initialisé, l'initialiser
+      print('⚠️ Firebase non initialisé, initialisation en cours...');
+      try {
+        await Firebase.initializeApp();
+        print('✅ Firebase initialisé avec succès');
+      } catch (initError) {
+        print('❌ Erreur lors de l\'initialisation de Firebase: $initError');
+        rethrow;
+      }
+    }
+  }
+
   /// Utilise l'endpoint existant /push/register-device sans modification
   Future<bool> registerDevice() async {
     try {
+      // S'assurer que Firebase est initialisé
+      await _ensureFirebaseInitialized();
+      
       final isAuth = await _authService.isAuthenticated();
       if (!isAuth) {
         print('⚠️ Utilisateur non authentifié, device non enregistré');
         return false;
       }
 
+      // Obtenir le token FCM si ce n'est pas déjà fait
       if (_fcmToken == null) {
-        print('⚠️ Token FCM non disponible');
-        return false;
+        print('⚠️ Token FCM non disponible, tentative d\'obtention...');
+        await _getFCMToken();
+        if (_fcmToken == null) {
+          print('❌ Impossible d\'obtenir le token FCM');
+          return false;
+        }
       }
 
       // Obtenir les informations du device
