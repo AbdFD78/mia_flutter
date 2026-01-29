@@ -241,18 +241,43 @@ class PushNotificationService {
   Future<void> _ensureFirebaseInitialized() async {
     try {
       // Vérifier si Firebase est déjà initialisé en essayant d'accéder à une app
-      Firebase.app();
-      print('✅ Firebase déjà initialisé');
-    } catch (e) {
-      // Firebase n'est pas initialisé, l'initialiser
-      print('⚠️ Firebase non initialisé, initialisation en cours...');
       try {
-        await Firebase.initializeApp();
-        print('✅ Firebase initialisé avec succès');
-      } catch (initError) {
-        print('❌ Erreur lors de l\'initialisation de Firebase: $initError');
-        rethrow;
+        Firebase.app();
+        print('✅ Firebase déjà initialisé');
+        return;
+      } catch (e) {
+        // Firebase n'est pas initialisé, continuer pour l'initialiser
+        print('⚠️ Firebase non initialisé, initialisation en cours...');
       }
+      
+      // Firebase n'est pas initialisé, l'initialiser
+      if (Platform.isIOS) {
+        print('📱 Plateforme iOS détectée');
+        print('   Vérification de la configuration Firebase pour iOS...');
+      }
+      
+      await Firebase.initializeApp();
+      print('✅ Firebase initialisé avec succès');
+      
+      // Vérifier que l'initialisation a bien fonctionné en accédant à l'app
+      final app = Firebase.app();
+      print('✅ Vérification Firebase OK - App name: ${app.name}');
+      
+    } catch (initError) {
+      final errorMessage = initError.toString();
+      print('❌ Erreur lors de l\'initialisation de Firebase: $errorMessage');
+      print('   Type d\'erreur: ${initError.runtimeType}');
+      
+      if (Platform.isIOS) {
+        print('   ⚠️ SUR iOS, vérifiez:');
+        print('   1. Que GoogleService-Info.plist est présent dans ios/Runner/');
+        print('   2. Qu\'il est ajouté au projet Xcode (cocher dans Target Membership)');
+        print('   3. Que le Bundle ID correspond à celui de Firebase Console');
+        print('   4. Que les Push Notifications sont activées dans Capabilities');
+      }
+      
+      // Ne pas rethrow pour permettre à l'app de continuer, mais retourner une erreur claire
+      throw Exception('Firebase non initialisé: $errorMessage');
     }
   }
 
@@ -260,7 +285,12 @@ class PushNotificationService {
   Future<bool> registerDevice() async {
     try {
       // S'assurer que Firebase est initialisé
-      await _ensureFirebaseInitialized();
+      try {
+        await _ensureFirebaseInitialized();
+      } catch (e) {
+        print('❌ Impossible d\'initialiser Firebase: $e');
+        throw Exception('Firebase n\'est pas configuré correctement. Vérifiez la configuration iOS dans Xcode.');
+      }
       
       final isAuth = await _authService.isAuthenticated();
       if (!isAuth) {
@@ -271,10 +301,15 @@ class PushNotificationService {
       // Obtenir le token FCM si ce n'est pas déjà fait
       if (_fcmToken == null) {
         print('⚠️ Token FCM non disponible, tentative d\'obtention...');
-        await _getFCMToken();
+        try {
+          await _getFCMToken();
+        } catch (e) {
+          print('❌ Erreur lors de l\'obtention du token FCM: $e');
+          throw Exception('Impossible d\'obtenir le token FCM. Firebase doit être correctement configuré.');
+        }
         if (_fcmToken == null) {
           print('❌ Impossible d\'obtenir le token FCM');
-          return false;
+          throw Exception('Token FCM non disponible. Vérifiez la configuration Firebase.');
         }
       }
 

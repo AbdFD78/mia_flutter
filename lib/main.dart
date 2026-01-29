@@ -30,16 +30,40 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialiser Firebase
+  // Note: Sur iOS, Firebase peut être initialisé dans AppDelegate.swift
+  // mais on essaie aussi ici pour être sûr
+  bool firebaseInitialized = false;
   try {
-    await Firebase.initializeApp();
-    print('✅ Firebase initialisé');
+    // Vérifier si Firebase est déjà initialisé (par AppDelegate sur iOS)
+    try {
+      Firebase.app();
+      print('✅ Firebase déjà initialisé (probablement par AppDelegate sur iOS)');
+      firebaseInitialized = true;
+    } catch (e) {
+      // Firebase n'est pas initialisé, l'initialiser
+      print('⚠️ Firebase non initialisé, tentative d\'initialisation...');
+      await Firebase.initializeApp();
+      print('✅ Firebase initialisé depuis main.dart');
+      firebaseInitialized = true;
+    }
     
     // Configurer le handler pour les notifications en arrière-plan
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
-    print('⚠️ Erreur lors de l\'initialisation de Firebase: $e');
+    print('❌ Erreur lors de l\'initialisation de Firebase: $e');
+    print('   Type d\'erreur: ${e.runtimeType}');
+    if (e.toString().contains('GoogleService-Info.plist') || 
+        e.toString().contains('not-initialized')) {
+      print('   ⚠️ Vérifiez que GoogleService-Info.plist est présent dans ios/Runner/');
+      print('   ⚠️ Et qu\'il est ajouté au projet Xcode dans le bundle');
+      print('   ⚠️ Vérifiez aussi que Firebase est initialisé dans AppDelegate.swift');
+    }
     print('   Les notifications push ne fonctionneront pas sans Firebase configuré');
     // L'application peut continuer à fonctionner sans les notifications push
+  }
+  
+  if (!firebaseInitialized) {
+    print('⚠️ Application démarrée sans Firebase - les notifications push seront désactivées');
   }
   
   runApp(const MyApp());

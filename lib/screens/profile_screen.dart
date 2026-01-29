@@ -410,20 +410,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       if (enabled) {
         // Activer : enregistrer le device
-        final success = await PushNotificationService().registerDevice();
-        if (success) {
-          // Recharger l'état
-          await _loadPushDevices();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Notifications push activées'),
-                backgroundColor: AppTheme.accentGreen,
-              ),
-            );
+        try {
+          final success = await PushNotificationService().registerDevice();
+          if (success) {
+            // Recharger l'état
+            await _loadPushDevices();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Notifications push activées'),
+                  backgroundColor: AppTheme.accentGreen,
+                ),
+              );
+            }
+          } else {
+            throw Exception('Impossible d\'enregistrer le device');
           }
-        } else {
-          throw Exception('Impossible d\'enregistrer le device');
+        } catch (e) {
+          // Gérer spécifiquement les erreurs Firebase
+          final errorMessage = e.toString();
+          if (errorMessage.contains('Firebase') || errorMessage.contains('FCM')) {
+            throw Exception('Erreur Firebase: $errorMessage\n\nSur iOS, vérifiez que GoogleService-Info.plist est correctement configuré dans Xcode.');
+          }
+          rethrow;
         }
       } else {
         // Désactiver : supprimer le device
