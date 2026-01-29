@@ -88,6 +88,19 @@ class PushNotificationService {
       if (currentSettings.authorizationStatus == AuthorizationStatus.authorized ||
           currentSettings.authorizationStatus == AuthorizationStatus.provisional) {
         print('✅ Permissions déjà accordées, pas besoin de dialogue');
+        
+        // Sur iOS, demander les permissions explicitement si nécessaire
+        if (Platform.isIOS && currentSettings.authorizationStatus == AuthorizationStatus.notDetermined) {
+          print('📱 iOS: Demande des permissions de notification...');
+          final settings = await _messaging.requestPermission(
+            alert: true,
+            badge: true,
+            sound: true,
+            provisional: false,
+          );
+          print('📱 iOS: Permissions - alert: ${settings.alert}, badge: ${settings.badge}, sound: ${settings.sound}');
+        }
+        
         await _getFCMToken();
         _setupNotificationHandlers();
         _isInitialized = true;
@@ -162,6 +175,33 @@ class PushNotificationService {
   /// Obtenir le token FCM
   Future<String?> _getFCMToken() async {
     try {
+      // Sur iOS, il faut d'abord obtenir le token APNS
+      if (Platform.isIOS) {
+        print('📱 iOS détecté, obtention du token APNS...');
+        try {
+          final apnsToken = await _messaging.getAPNSToken();
+          if (apnsToken != null) {
+            print('✅ Token APNS obtenu: ${apnsToken.substring(0, 20)}...');
+          } else {
+            print('⚠️ Token APNS non disponible, attente...');
+            // Attendre un peu et réessayer
+            await Future.delayed(const Duration(seconds: 2));
+            final apnsTokenRetry = await _messaging.getAPNSToken();
+            if (apnsTokenRetry == null) {
+              print('❌ Token APNS toujours non disponible après attente');
+              print('   ⚠️ Vérifiez que les Push Notifications sont activées dans Xcode Capabilities');
+              print('   ⚠️ Et que les permissions de notification ont été accordées');
+            } else {
+              print('✅ Token APNS obtenu après attente');
+            }
+          }
+        } catch (apnsError) {
+          print('⚠️ Erreur lors de l\'obtention du token APNS: $apnsError');
+          print('   ⚠️ Les notifications push peuvent ne pas fonctionner sur iOS');
+        }
+      }
+      
+      // Maintenant obtenir le token FCM
       _fcmToken = await _messaging.getToken();
       if (_fcmToken != null) {
         print('📱 Token FCM obtenu: ${_fcmToken!.substring(0, 20)}...');
@@ -171,6 +211,8 @@ class PushNotificationService {
         if (isAuth) {
           await registerDevice();
         }
+      } else {
+        print('⚠️ Token FCM null');
       }
       
       // Écouter les changements de token
@@ -186,6 +228,13 @@ class PushNotificationService {
       return _fcmToken;
     } catch (e) {
       print('❌ Erreur lors de la récupération du token FCM: $e');
+      if (Platform.isIOS && e.toString().contains('apns-token-not-set')) {
+        print('   ⚠️ Sur iOS, le token APNS doit être disponible avant le token FCM');
+        print('   ⚠️ Vérifiez:');
+        print('      1. Que les Push Notifications sont activées dans Xcode Capabilities');
+        print('      2. Que les permissions de notification ont été accordées');
+        print('      3. Que l\'app est signée avec un profil de développement valide');
+      }
       return null;
     }
   }
