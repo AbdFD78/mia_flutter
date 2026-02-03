@@ -73,17 +73,9 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
         );
         _pageController = PageController(initialPage: targetIndex);
         
-        // Synchroniser TabController et PageController
+        // Écouter les changements de tab pour mettre à jour l'UI
         _tabController.addListener(() {
-          if (_tabController.indexIsChanging) {
-            _pageController.animateToPage(
-              _tabController.index,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          }
-          // Rebuild pour mettre à jour l'état des boutons
-          if (mounted) {
+          if (mounted && !_tabController.indexIsChanging) {
             setState(() {});
           }
         });
@@ -131,6 +123,14 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
                 labelColor: Colors.blue,
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: Colors.blue,
+                onTap: (index) {
+                  // Lorsque l'utilisateur tape sur un onglet, synchroniser la PageView
+                  _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
                 tabs: _campaignDetail!.tabs.map((tab) {
                   return Tab(
                     child: Row(
@@ -181,7 +181,11 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
                             controller: _pageController,
                             itemCount: _campaignDetail!.tabs.length,
                             onPageChanged: (index) {
-                              _tabController.animateTo(index);
+                              // Lorsque l'utilisateur swipe entre les pages,
+                              // synchroniser le TabController sans reboucler sur la PageView
+                              if (_tabController.index != index) {
+                                _tabController.animateTo(index);
+                              }
                             },
                             itemBuilder: (context, index) {
                               final tab = _campaignDetail!.tabs[index];
