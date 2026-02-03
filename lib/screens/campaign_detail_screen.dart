@@ -19,7 +19,7 @@ class CampaignDetailScreen extends StatefulWidget {
 }
 
 class _CampaignDetailScreenState extends State<CampaignDetailScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   
   CampaignDetail? _campaignDetail;
@@ -44,6 +44,11 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
 
   Future<void> _loadCampaignDetail() async {
     try {
+      // Sauvegarder l'index de l'onglet actuel avant de recharger
+      final int? currentTabIndex = _campaignDetail != null && _tabController.length > 0
+          ? _tabController.index
+          : null;
+      
       setState(() {
         _isLoading = true;
         _error = null;
@@ -55,12 +60,18 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
         _campaignDetail = detail;
         _isLoading = false;
         
+        // Déterminer l'index à utiliser : restaurer l'index précédent si valide, sinon 0
+        final int targetIndex = currentTabIndex != null && currentTabIndex < detail.tabs.length
+            ? currentTabIndex
+            : 0;
+        
         // Initialiser les controllers après avoir chargé les données
         _tabController = TabController(
           length: detail.tabs.length,
+          initialIndex: targetIndex,
           vsync: this,
         );
-        _pageController = PageController();
+        _pageController = PageController(initialPage: targetIndex);
         
         // Synchroniser TabController et PageController
         _tabController.addListener(() {
@@ -120,9 +131,24 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
                 labelColor: Colors.blue,
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: Colors.blue,
-                tabs: _campaignDetail!.tabs
-                    .map((tab) => Tab(text: tab.nom))
-                    .toList(),
+                tabs: _campaignDetail!.tabs.map((tab) {
+                  return Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(tab.nom),
+                        if (!tab.valid) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.error_outline,
+                            size: 14,
+                            color: Colors.red,
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }).toList(),
               )
             : null,
       ),
@@ -219,7 +245,11 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
   }
 
   Widget _buildTabContent(CampaignTab tab) {
-    if (tab.fields.isEmpty) {
+    // Ne pas afficher les champs masqués (display = false) pour
+    // respecter la même logique que l'interface web.
+    final visibleFields = tab.fields.where((f) => f.display).toList();
+
+    if (visibleFields.isEmpty) {
       return const Center(
         child: Text(
           'Aucun champ dans cet onglet',
@@ -230,12 +260,17 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: tab.fields.length,
+      itemCount: visibleFields.length,
       itemBuilder: (context, index) {
-        final field = tab.fields[index];
+        final field = visibleFields[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: CampaignFieldWidget(field: field),
+          child: CampaignFieldWidget(
+            field: field,
+            campaignId: _campaignDetail!.id,
+            tabTag: tab.tag,
+            onRefreshRequested: _loadCampaignDetail,
+          ),
         );
       },
     );

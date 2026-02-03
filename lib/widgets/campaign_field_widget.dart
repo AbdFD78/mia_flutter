@@ -2,8 +2,12 @@
 
 import 'package:flutter/material.dart';
 import '../models/campaign_detail.dart';
+import '../services/api_service.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
+import '../config/app_config.dart';
+import '../screens/pdf_viewer_screen.dart';
 
 // Cache global pour stocker l'état de chargement des images
 class _ImageCache {
@@ -80,10 +84,16 @@ class _ImageLoadQueue {
 
 class CampaignFieldWidget extends StatefulWidget {
   final CampaignField field;
+  final int campaignId;
+  final String tabTag;
+  final VoidCallback? onRefreshRequested;
 
   const CampaignFieldWidget({
     super.key,
     required this.field,
+    required this.campaignId,
+    required this.tabTag,
+    this.onRefreshRequested,
   });
 
   @override
@@ -92,6 +102,10 @@ class CampaignFieldWidget extends StatefulWidget {
 
 class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
   CampaignField get field => widget.field;
+  final ApiService _apiService = ApiService();
+
+  // Cache des lignes produits éditables pour les champs newdocgenerator
+  static final Map<String, List<Map<String, dynamic>>> _newDocLinesCache = {};
 
   @override
   Widget build(BuildContext context) {
@@ -127,8 +141,10 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         return _buildMediaField();
       
       case 'document':
-      case 'newdocgenerator':
         return _buildDocumentField();
+
+      case 'newdocgenerator':
+        return _buildNewDocGeneratorField();
       
       case 'discussion':
         return _buildDiscussionField();
@@ -137,7 +153,9 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         return _buildRecapitulatifField();
       
       case 'tableauproduit':
-        return _buildTableauProduitField();
+        // Sur mobile, on masque complètement les tableaux produits,
+        // comme demandé (gestion détaillée uniquement sur la version web).
+        return const SizedBox.shrink();
       
       case 'suivie-client':
         return _buildSuivieClientField();
@@ -800,6 +818,340 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     );
   }
 
+  /// Version enrichie pour le type newdocgenerator :
+  /// - Dernier devis / facture
+  /// - Historique
+  /// - Lignes produits (lecture seule)
+  Widget _buildNewDocGeneratorField() {
+    // Normaliser la valeur :
+    // - cas 1 : aucune valeur encore stockée -> structure vide
+    // - cas 2 : déjà une Map structurée (API récente)
+    // - cas 3 : ancienne valeur JSON brute (history de devis uniquement)
+    Map<String, dynamic>? data;
+
+    if (field.value == null) {
+      data = {
+        'latest_devis': null,
+        'devis_history': <Map<String, dynamic>>[],
+        'latest_facture': null,
+        'facture_history': <Map<String, dynamic>>[],
+        'product_lines': <Map<String, dynamic>>[],
+      };
+    } else if (field.value is Map<String, dynamic>) {
+      data = field.value as Map<String, dynamic>;
+    } else if (field.value is String) {
+      try {
+        final decoded = json.decode(field.value as String);
+        if (decoded is Map<String, dynamic>) {
+          // Ancien format : {"timestamp": {"pdf": "...", "num_devis": "..."}, ...}
+          final rawMap = decoded;
+          final devisHistory = <Map<String, dynamic>>[];
+          rawMap.forEach((key, value) {
+            if (value is Map) {
+              final record = Map<String, dynamic>.from(value as Map);
+              final pdfPath = record['pdf']?.toString();
+              devisHistory.add({
+                'timestamp': key.toString(),
+                'num_devis': record['num_devis']?.toString(),
+                'pdf_url': pdfPath != null
+                    ? AppConfig.getResourceUrl(pdfPath)
+                    : null,
+              });
+            }
+          });
+
+          Map<String, dynamic>? latestDevis;
+          if (devisHistory.isNotEmpty) {
+            latestDevis = devisHistory.lastWhere(
+              (e) => e['pdf_url'] != null,
+              orElse: () => devisHistory.last,
+            );
+          }
+
+          data = {
+            'latest_devis': latestDevis,
+            'devis_history': devisHistory,
+            'latest_facture': null,
+            'facture_history': <Map<String, dynamic>>[],
+            'product_lines': <Map<String, dynamic>>[],
+          };
+        }
+      } catch (_) {
+        // Si le JSON n'est pas valide, on retombera sur le rendu simple.
+      }
+    }
+
+    if (data == null) {
+      // Fallback sur l'ancien rendu si la valeur n'est pas exploitable
+      return _buildDocumentField();
+    }
+
+    final String cacheKey =
+        '${widget.campaignId}-${widget.tabTag}-${field.tag}';
+
+    final Map<String, dynamic>? latestDevis =
+        data['latest_devis'] is Map<String, dynamic>
+            ? data['latest_devis'] as Map<String, dynamic>
+            : null;
+    final Map<String, dynamic>? latestFacture =
+        data['latest_facture'] is Map<String, dynamic>
+            ? data['latest_facture'] as Map<String, dynamic>
+            : null;
+
+    final List<Map<String, dynamic>> devisHistory =
+        (data['devis_history'] as List<dynamic>? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+
+    final List<Map<String, dynamic>> factureHistory =
+        (data['facture_history'] as List<dynamic>? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+
+    final List<Map<String, dynamic>> products =
+        (data['products'] as List<dynamic>? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+
+    // Charger les lignes depuis l'API et mettre à jour le cache
+    final apiLinesRaw = data['product_lines'] as List<dynamic>? ?? [];
+    
+    final apiLines = apiLinesRaw
+        .map((e) {
+          if (e is Map) {
+            return Map<String, dynamic>.from(e);
+          }
+          return <String, dynamic>{};
+        })
+        .where((e) => e.isNotEmpty)
+        .toList();
+    
+    // Toujours synchroniser le cache avec les données de l'API si elles sont présentes
+    // Si l'API renvoie des lignes, on les utilise pour mettre à jour le cache
+    if (apiLines.isNotEmpty) {
+      // Si on a des données de l'API, toujours les utiliser pour mettre à jour le cache
+      _newDocLinesCache[cacheKey] = List<Map<String, dynamic>>.from(apiLines);
+    } else if (!_newDocLinesCache.containsKey(cacheKey)) {
+      // Si l'API ne renvoie rien et que le cache n'existe pas, initialiser avec une liste vide
+      _newDocLinesCache[cacheKey] = [];
+    }
+    // Si l'API renvoie une liste vide mais que le cache existe déjà avec des données,
+    // on garde le cache (l'utilisateur pourrait être en train d'éditer)
+    
+    final productLines = _newDocLinesCache[cacheKey] ?? [];
+
+    return _buildCardField(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tag du champ
+          Text(
+            field.label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Boutons de génération (utiliser Wrap pour éviter les overflows)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (factureHistory.isEmpty)
+                IconButton.filled(
+                  onPressed: () async {
+                    final confirmed = await _confirmGenerateDevis(context);
+                    if (confirmed == true) {
+                      await _handleGenerateDevis();
+                    }
+                  },
+                  icon: const Icon(Icons.description_outlined),
+                  tooltip:
+                      'Générer un devis (vous ne pourrez plus le modifier ni en générer un autre)',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              if (latestDevis != null)
+                IconButton.filled(
+                  onPressed: () async {
+                    await _handleGenerateFacture();
+                  },
+                  icon: const Icon(Icons.receipt_long),
+                  tooltip: 'Générer une facture à partir du devis courant',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.orange[700],
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              IconButton.filled(
+                onPressed: () {
+                  _openLinesEditor(context, cacheKey, products);
+                },
+                icon: const Icon(Icons.table_chart),
+                tooltip: 'Voir les produits',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.grey[600],
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Dernier devis
+          if (latestDevis != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.description_outlined,
+                    color: Colors.blue, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Dernier devis : ${latestDevis['num_devis'] ?? 'N/A'}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (latestDevis['pdf_url'] != null)
+                  TextButton.icon(
+                    onPressed: () => _openPdf(
+                      context,
+                      latestDevis['pdf_url'] as String,
+                      'Devis ${latestDevis['num_devis'] ?? ''}',
+                    ),
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('Voir'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Dernière facture
+          if (latestFacture != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.receipt_long,
+                    color: Colors.orange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Dernière facture : ${latestFacture['num_facture'] ?? 'N/A'}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (latestFacture['pdf_url'] != null)
+                  TextButton.icon(
+                    onPressed: () => _openPdf(
+                      context,
+                      latestFacture['pdf_url'] as String,
+                      'Facture ${latestFacture['num_facture'] ?? ''}',
+                    ),
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('Voir'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Historique devis
+          if (devisHistory.isNotEmpty) ...[
+            ExpansionTile(
+              title: Row(
+                children: [
+                  const Icon(Icons.history, size: 18, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Historique des devis (${devisHistory.length})',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
+              ),
+              children: devisHistory.map((item) {
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.description_outlined,
+                      size: 18, color: Colors.blue),
+                  title: Text(
+                    '${item['timestamp'] ?? ''} — ${item['num_devis'] ?? ''}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  trailing: item['pdf_url'] != null
+                      ? IconButton(
+                          icon: const Icon(Icons.visibility, size: 18),
+                          onPressed: () => _openPdf(
+                            context,
+                            item['pdf_url'] as String,
+                            'Devis ${item['num_devis'] ?? ''}',
+                          ),
+                        )
+                      : null,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Historique factures
+          if (factureHistory.isNotEmpty) ...[
+            ExpansionTile(
+              title: Row(
+                children: [
+                  const Icon(Icons.history, size: 18, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Historique des factures (${factureHistory.length})',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
+              ),
+              children: factureHistory.map((item) {
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.receipt_long,
+                      size: 18, color: Colors.orange),
+                  title: Text(
+                    '${item['timestamp'] ?? ''} — ${item['num_facture'] ?? ''}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  trailing: item['pdf_url'] != null
+                      ? IconButton(
+                          icon: const Icon(Icons.visibility, size: 18),
+                          onPressed: () => _openPdf(
+                            context,
+                            item['pdf_url'] as String,
+                            'Facture ${item['num_facture'] ?? ''}',
+                          ),
+                        )
+                      : null,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildDiscussionField() {
     // Parser les données de discussion
     final Map<String, dynamic>? discussionData = field.value is Map 
@@ -1390,15 +1742,6 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               color: field.value != null ? Colors.black87 : Colors.grey,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Type: ${field.type}',
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.orange,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
         ],
       ),
     );
@@ -1416,6 +1759,778 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         padding: const EdgeInsets.all(16),
         child: child,
       ),
+    );
+  }
+
+  void _openPdf(BuildContext context, String url, String title) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PdfViewerScreen(
+          url: url,
+          title: title,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleGenerateDevis() async {
+    try {
+      await _apiService.generateNewDocDevis(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+      );
+      if (widget.onRefreshRequested != null) {
+        widget.onRefreshRequested!();
+      }
+    } catch (e) {
+      // On laisse la gestion fine des erreurs à plus tard
+      // pour l'instant on log simplement.
+      // ignore: avoid_print
+      print('Erreur génération devis: $e');
+    }
+  }
+
+  Future<void> _handleGenerateFacture() async {
+    try {
+      await _apiService.generateNewDocFacture(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+      );
+      if (widget.onRefreshRequested != null) {
+        widget.onRefreshRequested!();
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Erreur génération facture: $e');
+    }
+  }
+
+  Future<void> _handleSaveProductLines(String cacheKey) async {
+    try {
+      final lines = _newDocLinesCache[cacheKey] ?? [];
+      await _apiService.updateNewDocProductLines(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+        productLines: lines,
+      );
+      if (widget.onRefreshRequested != null) {
+        widget.onRefreshRequested!();
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Erreur sauvegarde lignes produits: $e');
+    }
+  }
+
+  void _recomputeLineTotals(String cacheKey, int index) {
+    final line = _newDocLinesCache[cacheKey]![index];
+
+    double toDouble(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
+    }
+
+    final double quantite = toDouble(line['quantite']);
+    final double prixUnitaire = toDouble(line['prix_unitaire']);
+    final double remise = toDouble(line['remise']);
+    final double tva = toDouble(line['Tva'] ?? line['tva']);
+
+    // Même formule que TableauProduit::calculateTotals
+    double totalHt = (quantite * prixUnitaire) -
+        (quantite * ((remise / 100) * prixUnitaire));
+    double totalTva = (totalHt * tva) / 100;
+    double totalTtc = totalHt + totalTva;
+
+    if (totalHt.isNaN || totalHt.isInfinite) totalHt = 0;
+    if (totalTva.isNaN || totalTva.isInfinite) totalTva = 0;
+    if (totalTtc.isNaN || totalTtc.isInfinite) totalTtc = 0;
+
+    _newDocLinesCache[cacheKey]![index]['TotalHt'] =
+        double.parse(totalHt.toStringAsFixed(2));
+    _newDocLinesCache[cacheKey]![index]['total_ht'] =
+        double.parse(totalHt.toStringAsFixed(2));
+    _newDocLinesCache[cacheKey]![index]['TotalTva'] =
+        double.parse(totalTva.toStringAsFixed(2));
+    _newDocLinesCache[cacheKey]![index]['total_tva'] =
+        double.parse(totalTva.toStringAsFixed(2));
+    _newDocLinesCache[cacheKey]![index]['TotalTtc'] =
+        double.parse(totalTtc.toStringAsFixed(2));
+    _newDocLinesCache[cacheKey]![index]['total_ttc'] =
+        double.parse(totalTtc.toStringAsFixed(2));
+  }
+
+  // Convertir n'importe quelle valeur dynamique en double en toute sécurité
+  double _toDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
+  }
+
+  Future<bool?> _confirmGenerateDevis(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Générer un devis'),
+          content: const Text(
+            'Vous êtes sur le point de générer un devis.\n\n'
+            'Attention : une fois le devis généré, vous ne pourrez plus le modifier ni en générer un nouveau pour ce document.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Confirmer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Calculer les totaux globaux (somme de toutes les lignes)
+  Map<String, double> _calculateGlobalTotals(String cacheKey) {
+    final lines = _newDocLinesCache[cacheKey] ?? [];
+    double totalHt = 0;
+    double totalTva = 0;
+    double totalTtc = 0;
+
+    for (var line in lines) {
+      totalHt += _toDouble(line['TotalHt'] ?? line['total_ht']);
+      totalTva += _toDouble(line['TotalTva'] ?? line['total_tva']);
+      totalTtc += _toDouble(line['TotalTtc'] ?? line['total_ttc'] ?? line['TotalTTC']);
+    }
+
+    return {
+      'total_ht': totalHt,
+      'total_tva': totalTva,
+      'total_ttc': totalTtc,
+    };
+  }
+
+  // Ouvrir le popup d'édition d'une ligne
+  void _openLineEditor(BuildContext context, String cacheKey, int index, List<Map<String, dynamic>> products, StateSetter setModalState) {
+    final line = _newDocLinesCache[cacheKey]![index];
+
+    int? _parseId(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v);
+      return null;
+    }
+
+    // Controllers pour pré-remplir et mettre à jour visuellement les champs
+    final titleController = TextEditingController(
+      text: line['title']?.toString() ?? line['Titre']?.toString() ?? '',
+    );
+    final descController = TextEditingController(
+      text: line['description']?.toString() ?? '',
+    );
+    final qteController = TextEditingController(
+      text: line['quantite']?.toString() ?? '0',
+    );
+    final puController = TextEditingController(
+      text: line['prix_unitaire']?.toString() ?? '0',
+    );
+    final remiseController = TextEditingController(
+      text: line['remise']?.toString() ?? '0',
+    );
+    final tvaController = TextEditingController(
+      text: line['Tva']?.toString() ?? line['tva']?.toString() ?? '0',
+    );
+
+    final initialProduitId = _parseId(line['produit_id']);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (editCtx) {
+        return StatefulBuilder(
+          builder: (context, setEditState) {
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.8,
+              maxChildSize: 0.95,
+              minChildSize: 0.5,
+              builder: (context, scrollController) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Modifier la ligne',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(editCtx).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView(
+                          controller: scrollController,
+                          children: [
+                            DropdownButtonFormField<int>(
+                              value: initialProduitId,
+                              decoration: const InputDecoration(
+                                labelText: 'Produit',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: products
+                                  .map((p) => DropdownMenuItem<int>(
+                                        value: _parseId(p['id']),
+                                        child: Text(
+                                          (p['label'] ?? p['titre'] ?? '').toString(),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) {
+                                setEditState(() {
+                                  _newDocLinesCache[cacheKey]![index]['produit_id'] = value;
+                                  final selected = products.firstWhere(
+                                    (p) => p['id'] == value,
+                                    orElse: () => {},
+                                  );
+                                  if (selected is Map && selected.isNotEmpty) {
+                                    final libelle = selected['titre'] ?? selected['label'] ?? '';
+                                    // Mettre à jour le cache
+                                    _newDocLinesCache[cacheKey]![index]['title'] = libelle;
+                                    _newDocLinesCache[cacheKey]![index]['Titre'] = libelle;
+                                    _newDocLinesCache[cacheKey]![index]['description'] = selected['description'] ?? '';
+                                    _newDocLinesCache[cacheKey]![index]['prix_unitaire'] = selected['prix_unitaire'] ?? 0;
+                                    _newDocLinesCache[cacheKey]![index]['Tva'] = selected['tva'] ?? 0;
+                                    _newDocLinesCache[cacheKey]![index]['tva'] = selected['tva'] ?? 0;
+
+                                    // Mettre à jour visuellement les champs
+                                    titleController.text = libelle.toString();
+                                    descController.text = (selected['description'] ?? '').toString();
+                                    puController.text = (selected['prix_unitaire'] ?? 0).toString();
+                                    tvaController.text = (selected['tva'] ?? 0).toString();
+
+                                    _recomputeLineTotals(cacheKey, index);
+                                  }
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: titleController,
+                              decoration: const InputDecoration(
+                                labelText: 'Titre',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (val) {
+                                setEditState(() {
+                                  _newDocLinesCache[cacheKey]![index]['title'] = val;
+                                  _newDocLinesCache[cacheKey]![index]['Titre'] = val;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: descController,
+                              decoration: const InputDecoration(
+                                labelText: 'Description',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 3,
+                              onChanged: (val) {
+                                setEditState(() {
+                                  _newDocLinesCache[cacheKey]![index]['description'] = val;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: qteController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Quantité',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    onChanged: (val) {
+                                      setEditState(() {
+                                        _newDocLinesCache[cacheKey]![index]['quantite'] = val;
+                                        _recomputeLineTotals(cacheKey, index);
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: puController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Prix unitaire',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    onChanged: (val) {
+                                      setEditState(() {
+                                        _newDocLinesCache[cacheKey]![index]['prix_unitaire'] = val;
+                                        _recomputeLineTotals(cacheKey, index);
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: remiseController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Remise (%)',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    onChanged: (val) {
+                                      setEditState(() {
+                                        _newDocLinesCache[cacheKey]![index]['remise'] = val;
+                                        _recomputeLineTotals(cacheKey, index);
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: tvaController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'TVA (%)',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    onChanged: (val) {
+                                      setEditState(() {
+                                        _newDocLinesCache[cacheKey]![index]['Tva'] = val;
+                                        _newDocLinesCache[cacheKey]![index]['tva'] = val;
+                                        _recomputeLineTotals(cacheKey, index);
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Builder(
+                              builder: (context) {
+                                // Lire les totaux depuis le cache à chaque rebuild
+                                final currentLine = _newDocLinesCache[cacheKey]![index];
+                                final totalHt = (currentLine['TotalHt'] ?? currentLine['total_ht'] ?? 0).toDouble();
+                                final totalTva = (currentLine['TotalTva'] ?? currentLine['total_tva'] ?? 0).toDouble();
+                                final totalTtc = (currentLine['TotalTtc'] ?? currentLine['total_ttc'] ?? currentLine['TotalTTC'] ?? 0).toDouble();
+                                
+                                return Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    children: [
+                                      Column(
+                                        children: [
+                                          Text(
+                                            'Total HT',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          ),
+                                          Text(
+                                            '${totalHt.toStringAsFixed(2)} €',
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
+                                      Column(
+                                        children: [
+                                          Text(
+                                            'Total TVA',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          ),
+                                          Text(
+                                            '${totalTva.toStringAsFixed(2)} €',
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
+                                      Column(
+                                        children: [
+                                          Text(
+                                            'Total TTC',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          ),
+                                          Text(
+                                            '${totalTtc.toStringAsFixed(2)} €',
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(editCtx).pop();
+                            setModalState(() {}); // Rafraîchir la liste principale
+                          },
+                          child: const Text('Enregistrer'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openLinesEditor(
+      BuildContext context, String cacheKey, List<Map<String, dynamic>> products) {
+    // S'assurer que le cache existe avant d'ouvrir le modal
+    if (!_newDocLinesCache.containsKey(cacheKey)) {
+      _newDocLinesCache[cacheKey] = [];
+    }
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final lines = _newDocLinesCache[cacheKey] ?? [];
+            final totals = _calculateGlobalTotals(cacheKey);
+
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.85,
+              maxChildSize: 0.95,
+              minChildSize: 0.5,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Column(
+                    children: [
+                      // Header avec titre et bouton fermer
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Voir les produits',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Liste des lignes
+                      Expanded(
+                        child: lines.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.inbox_outlined, 
+                                         size: 64, 
+                                         color: Colors.grey[400]),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Aucune ligne de produit',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Cliquez sur "Ajouter une ligne" pour commencer',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: lines.length,
+                                itemBuilder: (context, index) {
+                            final line = lines[index];
+                            final title = line['title']?.toString() ?? 
+                                line['Titre']?.toString() ?? 
+                                'Ligne ${index + 1}';
+                            final qte = (line['quantite'] ?? 0).toString();
+                            final pu = (line['prix_unitaire'] ?? 0).toString();
+                            final totalTtc = ((line['TotalTtc'] ?? 
+                                line['total_ttc'] ?? 
+                                line['TotalTTC'] ?? 
+                                0).toDouble()).toStringAsFixed(2);
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            title,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '$qte × ${double.tryParse(pu)?.toStringAsFixed(2) ?? pu} €',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '$totalTtc €',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.blue),
+                                      onPressed: () {
+                                        _openLineEditor(context, cacheKey, index, products, setModalState);
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      onPressed: () {
+                                        setModalState(() {
+                                          _newDocLinesCache[cacheKey]!.removeAt(index);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      // Bouton Ajouter une ligne
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Card(
+                          elevation: 0,
+                          color: Colors.grey[50],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          child: InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                // Générer un index unique comme sur le web (uniqid-like)
+                                final random = Random();
+                                final timestamp = DateTime.now().millisecondsSinceEpoch;
+                                final randomPart = random.nextInt(1000000);
+                                final index = '${timestamp.toRadixString(36)}$randomPart';
+                                
+                                _newDocLinesCache[cacheKey]!.add({
+                                  'index': index,
+                                  'title': '',
+                                  'description': '',
+                                  'quantite': 0,
+                                  'prix_unitaire': 0,
+                                  'remise': 0,
+                                  'TotalHt': 0,
+                                  'Tva': 0,
+                                  'TotalTtc': 0,
+                                });
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add, color: Colors.blue[700]),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Ajouter une ligne',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Footer avec totaux et bouton Enregistrer
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, -2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // Totaux en readonly
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Total TTC',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey[800],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'HT: ${totals['total_ht']!.toStringAsFixed(2)} € | TVA: ${totals['total_tva']!.toStringAsFixed(2)} €',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '${totals['total_ttc']!.toStringAsFixed(2)} €',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Bouton Enregistrer
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  try {
+                                    await _handleSaveProductLines(cacheKey);
+                                    if (ctx.mounted) {
+                                      Navigator.of(ctx).pop();
+                                    }
+                                  } catch (e) {
+                                    // Afficher une erreur si la sauvegarde échoue
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(ctx).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Erreur lors de la sauvegarde: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.save, size: 20),
+                                label: const Text(
+                                  'Enregistrer',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

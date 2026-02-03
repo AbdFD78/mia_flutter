@@ -88,6 +88,7 @@ class CampaignField {
   final int colSize;
   final Map<String, dynamic> options;
   final int order;
+  final bool display;
 
   CampaignField({
     required this.id,
@@ -99,21 +100,44 @@ class CampaignField {
     required this.colSize,
     required this.options,
     required this.order,
+    this.display = true,
   });
 
   factory CampaignField.fromJson(Map<String, dynamic> json) {
+    final rawType = (json['type'] ?? 'text').toString();
+    final Map<String, dynamic> opts = json['options'] is Map<String, dynamic>
+        ? json['options'] as Map<String, dynamic>
+        : {};
+
+    // Certains formulaires "NewDocGenerator" ont un type différent
+    // ("document", "newgenerator", etc.). On les détecte par la présence
+    // d'un template + data.Tableau_Produit dans les options, quel que soit
+    // le type d'origine, et on les traite comme "newdocgenerator".
+    String effectiveType = rawType.toLowerCase();
+    final String tag = (json['tag'] ?? '').toString().toLowerCase();
+    final bool looksLikeNewDocGenerator =
+        (opts.containsKey('template') &&
+            (opts['data'] is Map<String, dynamic>) &&
+            (opts['data'] as Map<String, dynamic>).containsKey('Tableau_Produit')) ||
+        tag.startsWith('newgenerator');
+    if (looksLikeNewDocGenerator) {
+      effectiveType = 'newdocgenerator';
+    }
+
     return CampaignField(
       id: json['id'] ?? 0,
       tag: json['tag'] ?? '',
-      type: json['type'] ?? 'text',
+      type: effectiveType,
       label: json['label'] ?? 'Sans titre',
       value: json['value'],
       required: _parseBool(json['required']),
       colSize: json['col_size'] ?? 12,
-      options: json['options'] is Map<String, dynamic> 
-          ? json['options'] as Map<String, dynamic>
-          : {},
+      options: opts,
       order: json['order'] ?? 0,
+      // Si la clé display n'est pas présente, on considère que le champ est visible
+      display: json.containsKey('display')
+          ? _parseBool(json['display'])
+          : true,
     );
   }
 

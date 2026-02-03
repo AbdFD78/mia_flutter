@@ -876,4 +876,64 @@ class ApiService {
       rethrow;
     }
   }
+
+  // ============================================================
+  // NEWDOCGENERATOR - Génération devis / facture & lignes produits
+  // ============================================================
+
+  Future<void> generateNewDocDevis({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse('$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/devis');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ?? 'Erreur lors de la génération du devis');
+    }
+  }
+
+  Future<void> generateNewDocFacture({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse('$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/facture');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ?? 'Erreur lors de la génération de la facture');
+    }
+  }
+
+  Future<void> updateNewDocProductLines({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+    required List<Map<String, dynamic>> productLines,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse('$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/product-lines');
+
+    final response = await http.post(
+      uri,
+      headers: headers,
+      body: jsonEncode({'product_lines': productLines}),
+    );
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ?? 'Erreur lors de la mise à jour des lignes produits');
+    }
+  }
 }
