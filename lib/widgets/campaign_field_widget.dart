@@ -1922,16 +1922,25 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
     if (source == null) return;
 
-    // Laisser la vue se stabiliser avant d'ouvrir le sélecteur natif (évite freeze sur iOS/iPad).
-    await Future.delayed(Duration(milliseconds: isIOS ? 500 : 350));
+    // Laisser la vue se stabiliser avant d'ouvrir le sélecteur natif.
+    // Sur iOS, la galerie a besoin d'un délai plus long que la caméra pour s'ouvrir au premier clic.
+    final int delayMs = isIOS
+        ? (source == ImageSource.gallery ? 700 : 500)
+        : 350;
+    await Future.delayed(Duration(milliseconds: delayMs));
 
     if (!context.mounted) return;
 
     try {
       List<XFile>? pickedFiles;
-      // Sur iOS, ouvrir le picker après le prochain frame pour éviter conflit avec le view controller.
       if (isIOS) {
-        pickedFiles = await _openPickerAfterFrame(picker, source);
+        // Caméra : ouvrir après le prochain frame pour éviter freeze.
+        // Galerie : appel direct après le délai pour qu'elle s'ouvre au premier clic.
+        if (source == ImageSource.gallery) {
+          pickedFiles = await picker.pickMultiImage();
+        } else {
+          pickedFiles = await _openPickerAfterFrame(picker, source);
+        }
       } else {
         if (source == ImageSource.gallery) {
           pickedFiles = await picker.pickMultiImage();
