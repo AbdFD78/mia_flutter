@@ -1847,50 +1847,97 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     }
   }
 
+  /// Ouvre le sélecteur image après le prochain frame (évite freeze sur iOS/iPad).
+  Future<List<XFile>?> _openPickerAfterFrame(ImagePicker picker, ImageSource source) async {
+    final completer = Completer<List<XFile>?>();
+    void runPicker() async {
+      try {
+        List<XFile>? result;
+        if (source == ImageSource.gallery) {
+          result = await picker.pickMultiImage();
+        } else {
+          final file = await picker.pickImage(source: source);
+          result = file != null ? [file] : null;
+        }
+        if (!completer.isCompleted) completer.complete(result);
+      } catch (e) {
+        if (!completer.isCompleted) completer.completeError(e);
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => runPicker());
+    return completer.future;
+  }
+
   Future<void> _pickAndUploadMedia(BuildContext context) async {
     final ImagePicker picker = ImagePicker();
-    
-    // Demander à l'utilisateur de choisir la source
-    final ImageSource? source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Galerie'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Appareil photo'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    final bool isIOS = Platform.isIOS;
+
+    // Sur iOS/iPad, éviter le bottom sheet qui peut faire figer l'app avec la caméra.
+    // Utiliser un AlertDialog qui se ferme proprement avant d'ouvrir le sélecteur natif.
+    final ImageSource? source = isIOS
+        ? await showDialog<ImageSource>(
+            context: context,
+            barrierDismissible: true,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Ajouter des médias'),
+                content: const Text('Choisir la source'),
+                actions: [
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library, size: 20),
+                    label: const Text('Galerie'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt, size: 20),
+                    label: const Text('Appareil photo'),
+                  ),
+                ],
+              );
+            },
+          )
+        : await showModalBottomSheet<ImageSource>(
+            context: context,
+            builder: (BuildContext context) {
+              return SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.photo_library),
+                      title: const Text('Galerie'),
+                      onTap: () => Navigator.pop(context, ImageSource.gallery),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.camera_alt),
+                      title: const Text('Appareil photo'),
+                      onTap: () => Navigator.pop(context, ImageSource.camera),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
 
     if (source == null) return;
 
-    // Sur iOS/iPad, attendre que le modal soit complètement fermé avant d'ouvrir
-    // le sélecteur natif (camera/galerie), sinon l'app peut figer.
-    await Future.delayed(const Duration(milliseconds: 350));
+    // Laisser la vue se stabiliser avant d'ouvrir le sélecteur natif (évite freeze sur iOS/iPad).
+    await Future.delayed(Duration(milliseconds: isIOS ? 500 : 350));
 
     if (!context.mounted) return;
 
     try {
-      // Permettre la sélection multiple depuis la galerie
       List<XFile>? pickedFiles;
-      if (source == ImageSource.gallery) {
-        pickedFiles = await picker.pickMultiImage();
+      // Sur iOS, ouvrir le picker après le prochain frame pour éviter conflit avec le view controller.
+      if (isIOS) {
+        pickedFiles = await _openPickerAfterFrame(picker, source);
       } else {
-        final pickedFile = await picker.pickImage(source: source);
-        if (pickedFile != null) {
-          pickedFiles = [pickedFile];
+        if (source == ImageSource.gallery) {
+          pickedFiles = await picker.pickMultiImage();
+        } else {
+          final pickedFile = await picker.pickImage(source: source);
+          if (pickedFile != null) pickedFiles = [pickedFile];
         }
       }
 
