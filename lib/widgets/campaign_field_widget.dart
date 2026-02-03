@@ -1876,6 +1876,12 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
     if (source == null) return;
 
+    // Sur iOS/iPad, attendre que le modal soit complètement fermé avant d'ouvrir
+    // le sélecteur natif (camera/galerie), sinon l'app peut figer.
+    await Future.delayed(const Duration(milliseconds: 350));
+
+    if (!context.mounted) return;
+
     try {
       // Permettre la sélection multiple depuis la galerie
       List<XFile>? pickedFiles;
