@@ -1847,27 +1847,6 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     }
   }
 
-  /// Ouvre le sélecteur image après le prochain frame (évite freeze sur iOS/iPad).
-  Future<List<XFile>?> _openPickerAfterFrame(ImagePicker picker, ImageSource source) async {
-    final completer = Completer<List<XFile>?>();
-    void runPicker() async {
-      try {
-        List<XFile>? result;
-        if (source == ImageSource.gallery) {
-          result = await picker.pickMultiImage();
-        } else {
-          final file = await picker.pickImage(source: source);
-          result = file != null ? [file] : null;
-        }
-        if (!completer.isCompleted) completer.complete(result);
-      } catch (e) {
-        if (!completer.isCompleted) completer.completeError(e);
-      }
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) => runPicker());
-    return completer.future;
-  }
-
   Future<void> _pickAndUploadMedia(BuildContext context) async {
     final ImagePicker picker = ImagePicker();
     final bool isIOS = Platform.isIOS;
@@ -1922,32 +1901,19 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
     if (source == null) return;
 
-    // Laisser la vue se stabiliser avant d'ouvrir le sélecteur natif.
-    // Sur iOS, la galerie a besoin d'un délai plus long que la caméra pour s'ouvrir au premier clic.
-    final int delayMs = isIOS
-        ? (source == ImageSource.gallery ? 700 : 500)
-        : 350;
+    // Court délai pour laisser le dialogue se fermer avant d'ouvrir le sélecteur natif (évite bug au 1er clic sur iOS).
+    final int delayMs = isIOS ? 400 : 300;
     await Future.delayed(Duration(milliseconds: delayMs));
 
     if (!context.mounted) return;
 
     try {
       List<XFile>? pickedFiles;
-      if (isIOS) {
-        // Caméra : ouvrir après le prochain frame pour éviter freeze.
-        // Galerie : appel direct après le délai pour qu'elle s'ouvre au premier clic.
-        if (source == ImageSource.gallery) {
-          pickedFiles = await picker.pickMultiImage();
-        } else {
-          pickedFiles = await _openPickerAfterFrame(picker, source);
-        }
+      if (source == ImageSource.gallery) {
+        pickedFiles = await picker.pickMultiImage();
       } else {
-        if (source == ImageSource.gallery) {
-          pickedFiles = await picker.pickMultiImage();
-        } else {
-          final pickedFile = await picker.pickImage(source: source);
-          if (pickedFile != null) pickedFiles = [pickedFile];
-        }
+        final pickedFile = await picker.pickImage(source: source);
+        if (pickedFile != null) pickedFiles = [pickedFile];
       }
 
       if (pickedFiles == null || pickedFiles.isEmpty) return;
