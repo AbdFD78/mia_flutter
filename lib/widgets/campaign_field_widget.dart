@@ -6,8 +6,10 @@ import '../services/api_service.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
 import '../config/app_config.dart';
 import '../screens/pdf_viewer_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 // Cache global pour stocker l'état de chargement des images
 class _ImageCache {
@@ -653,23 +655,32 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             ),
             const SizedBox(height: 12),
             Container(
-              height: 120,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.image_outlined, size: 48, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text(
-                      'Aucun média',
-                      style: TextStyle(color: Colors.grey),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.image_outlined, size: 48, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Aucun média',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => _pickAndUploadMedia(context),
+                    icon: const Icon(Icons.add_photo_alternate, size: 18),
+                    label: const Text('Ajouter des médias'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -692,20 +703,34 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                   color: Colors.black87,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${mediaUrls.length}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${mediaUrls.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.add_photo_alternate, size: 20),
+                    tooltip: 'Ajouter des médias',
+                    onPressed: () => _pickAndUploadMedia(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.blue.shade50,
+                      foregroundColor: Colors.blue.shade700,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1028,6 +1053,55 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     icon: const Icon(Icons.visibility, size: 18),
                     label: const Text('Voir'),
                   ),
+                if (devisHistory.isNotEmpty)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.history, size: 20),
+                    tooltip: 'Historique des devis',
+                    onSelected: (String? pdfUrl) {
+                      if (pdfUrl != null) {
+                        try {
+                          final item = devisHistory.firstWhere(
+                            (e) => e['pdf_url'] == pdfUrl,
+                          );
+                          _openPdf(
+                            context,
+                            pdfUrl,
+                            'Devis ${item['num_devis'] ?? ''}',
+                          );
+                        } catch (_) {
+                          // Si l'élément n'est pas trouvé, ouvrir quand même le PDF
+                          _openPdf(context, pdfUrl, 'Devis');
+                        }
+                      }
+                    },
+                    itemBuilder: (BuildContext context) {
+                      return devisHistory.map((item) {
+                        final pdfUrl = item['pdf_url'] as String?;
+                        return PopupMenuItem<String>(
+                          value: pdfUrl,
+                          enabled: pdfUrl != null,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.description_outlined,
+                                  size: 18, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${item['timestamp'] ?? ''} — ${item['num_devis'] ?? ''}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: pdfUrl != null
+                                        ? Colors.black87
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1059,94 +1133,60 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     icon: const Icon(Icons.visibility, size: 18),
                     label: const Text('Voir'),
                   ),
+                if (factureHistory.isNotEmpty)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.history, size: 20),
+                    tooltip: 'Historique des factures',
+                    onSelected: (String? pdfUrl) {
+                      if (pdfUrl != null) {
+                        try {
+                          final item = factureHistory.firstWhere(
+                            (e) => e['pdf_url'] == pdfUrl,
+                          );
+                          _openPdf(
+                            context,
+                            pdfUrl,
+                            'Facture ${item['num_facture'] ?? ''}',
+                          );
+                        } catch (_) {
+                          // Si l'élément n'est pas trouvé, ouvrir quand même le PDF
+                          _openPdf(context, pdfUrl, 'Facture');
+                        }
+                      }
+                    },
+                    itemBuilder: (BuildContext context) {
+                      return factureHistory.map((item) {
+                        final pdfUrl = item['pdf_url'] as String?;
+                        return PopupMenuItem<String>(
+                          value: pdfUrl,
+                          enabled: pdfUrl != null,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.receipt_long,
+                                  size: 18, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${item['timestamp'] ?? ''} — ${item['num_facture'] ?? ''}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: pdfUrl != null
+                                        ? Colors.black87
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 16),
           ],
 
-          // Historique devis
-          if (devisHistory.isNotEmpty) ...[
-            ExpansionTile(
-              title: Row(
-                children: [
-                  const Icon(Icons.history, size: 18, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Historique des devis (${devisHistory.length})',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                ],
-              ),
-              children: devisHistory.map((item) {
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.description_outlined,
-                      size: 18, color: Colors.blue),
-                  title: Text(
-                    '${item['timestamp'] ?? ''} — ${item['num_devis'] ?? ''}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  trailing: item['pdf_url'] != null
-                      ? IconButton(
-                          icon: const Icon(Icons.visibility, size: 18),
-                          onPressed: () => _openPdf(
-                            context,
-                            item['pdf_url'] as String,
-                            'Devis ${item['num_devis'] ?? ''}',
-                          ),
-                        )
-                      : null,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // Historique factures
-          if (factureHistory.isNotEmpty) ...[
-            ExpansionTile(
-              title: Row(
-                children: [
-                  const Icon(Icons.history, size: 18, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Historique des factures (${factureHistory.length})',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                ],
-              ),
-              children: factureHistory.map((item) {
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.receipt_long,
-                      size: 18, color: Colors.orange),
-                  title: Text(
-                    '${item['timestamp'] ?? ''} — ${item['num_facture'] ?? ''}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  trailing: item['pdf_url'] != null
-                      ? IconButton(
-                          icon: const Icon(Icons.visibility, size: 18),
-                          onPressed: () => _openPdf(
-                            context,
-                            item['pdf_url'] as String,
-                            'Facture ${item['num_facture'] ?? ''}',
-                          ),
-                        )
-                      : null,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
         ],
       ),
     );
@@ -1804,6 +1844,101 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     } catch (e) {
       // ignore: avoid_print
       print('Erreur génération facture: $e');
+    }
+  }
+
+  Future<void> _pickAndUploadMedia(BuildContext context) async {
+    final ImagePicker picker = ImagePicker();
+    
+    // Demander à l'utilisateur de choisir la source
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Galerie'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Appareil photo'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (source == null) return;
+
+    try {
+      // Permettre la sélection multiple depuis la galerie
+      List<XFile>? pickedFiles;
+      if (source == ImageSource.gallery) {
+        pickedFiles = await picker.pickMultiImage();
+      } else {
+        final pickedFile = await picker.pickImage(source: source);
+        if (pickedFile != null) {
+          pickedFiles = [pickedFile];
+        }
+      }
+
+      if (pickedFiles == null || pickedFiles.isEmpty) return;
+
+      // Afficher un indicateur de chargement
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Convertir XFile en File
+      final List<File> files = pickedFiles.map((xFile) => File(xFile.path)).toList();
+
+      // Uploader les fichiers
+      await _apiService.uploadMedia(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+        mediaFiles: files,
+      );
+
+      // Fermer l'indicateur de chargement
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+
+      // Afficher un message de succès
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Médias uploadés avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Rafraîchir les données
+      if (widget.onRefreshRequested != null) {
+        widget.onRefreshRequested!();
+      }
+    } catch (e) {
+      // Fermer l'indicateur de chargement s'il est ouvert
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'upload: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

@@ -936,4 +936,63 @@ class ApiService {
       throw Exception(jsonData['message'] ?? 'Erreur lors de la mise à jour des lignes produits');
     }
   }
+
+  /// Upload de médias pour un champ mediauploader
+  Future<List<String>> uploadMedia({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+    required List<File> mediaFiles,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Non authentifié');
+    }
+
+    final uri = Uri.parse('$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/media');
+    
+    var request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'application/json';
+
+    // Ajouter tous les fichiers
+    for (var file in mediaFiles) {
+      final fileExtension = file.path.split('.').last.toLowerCase();
+      String? contentType;
+      
+      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(fileExtension)) {
+        contentType = 'image/$fileExtension';
+        if (fileExtension == 'jpg') contentType = 'image/jpeg';
+      } else if (['mp4', 'avi', 'mov', 'wmv', 'webm', 'ogg'].contains(fileExtension)) {
+        contentType = 'video/$fileExtension';
+      } else if (fileExtension == 'pdf') {
+        contentType = 'application/pdf';
+      }
+
+      final multipartFile = await http.MultipartFile.fromPath(
+        'media[]',
+        file.path,
+        filename: file.path.split('/').last,
+        contentType: contentType != null ? MediaType.parse(contentType) : null,
+      );
+      request.files.add(multipartFile);
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ?? 'Erreur lors de l\'upload des médias');
+    }
+
+    final Map<String, dynamic> jsonData = json.decode(response.body);
+    if (jsonData['success'] == true && jsonData['media'] != null) {
+      return List<String>.from(jsonData['media']);
+    }
+    
+    throw Exception('Erreur lors de l\'upload des médias');
+  }
 }
