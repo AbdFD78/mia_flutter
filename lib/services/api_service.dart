@@ -976,6 +976,66 @@ class ApiService {
     }
   }
 
+  /// Génère une FACTURE en mode "prévisualisation" (brouillon) pour un champ newdocgenerator.
+  Future<void> generateNewDocFacturePreview({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/facture/preview');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ??
+          'Erreur lors de la génération de l\'aperçu de la facture');
+    }
+  }
+
+  /// Confirme la FACTURE en brouillon.
+  Future<void> confirmNewDocFacturePreview({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/facture/confirm');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ??
+          'Erreur lors de la confirmation de la facture');
+    }
+  }
+
+  /// Annule la FACTURE en brouillon (supprime l'aperçu).
+  Future<void> cancelNewDocFacturePreview({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/facture/cancel');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ??
+          'Erreur lors de l\'annulation du brouillon de facture');
+    }
+  }
+
   Future<void> updateNewDocProductLines({
     required int campagneId,
     required String tabTag,

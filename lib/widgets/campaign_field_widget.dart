@@ -944,6 +944,12 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             : null;
     final bool hasDevisPreview = devisPreview != null;
 
+    final Map<String, dynamic>? facturePreview =
+        data['preview_facture'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(data['preview_facture'] as Map)
+            : null;
+    final bool hasFacturePreview = facturePreview != null;
+
     // Charger les lignes depuis l'API et mettre à jour le cache
     final apiLinesRaw = data['product_lines'] as List<dynamic>? ?? [];
     
@@ -990,7 +996,9 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (factureHistory.isEmpty)
+              // Le bouton "Générer un devis" est masqué dès qu'un devis est confirmé (généré)
+              // On le masque si latestDevis existe (devis confirmé dans l'historique)
+              if (latestDevis == null)
                 IconButton.filled(
                   onPressed: () async {
                     if (!hasDevisPreview) {
@@ -1014,19 +1022,32 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     foregroundColor: Colors.white,
                   ),
                 ),
-              if (latestDevis != null)
+              // Le bouton "Générer une facture" est masqué si une facture est déjà confirmée
+              // On le masque si latestFacture existe (facture confirmée dans l'historique)
+              if (latestDevis != null && latestFacture == null)
                 IconButton.filled(
                   onPressed: () async {
-                    // Même comportement que sur le web :
-                    // - Première facture : afficher un avertissement avant de générer.
-                    // - Factures suivantes : générer directement.
-                    if (factureHistory.isEmpty) {
+                    if (!hasFacturePreview) {
+                      // Première fois : avertissement puis génération de l'aperçu facture
                       final confirmed = await _confirmGenerateFacture(context);
-                      if (confirmed != true) {
-                        return;
+                      if (confirmed == true) {
+                        await _apiService.generateNewDocFacturePreview(
+                          campagneId: widget.campaignId,
+                          tabTag: widget.tabTag,
+                          formTag: field.tag,
+                        );
+                        if (widget.onRefreshRequested != null) {
+                          widget.onRefreshRequested!();
+                        }
                       }
+                    } else {
+                      // Brouillon existant : ouvrir le menu brouillon facture
+                      await _showFactureBrouillonMenu(
+                        context,
+                        facturePreview,
+                        latestFacture,
+                      );
                     }
-                    await _handleGenerateFacture();
                   },
                   icon: const Icon(Icons.receipt_long),
                   tooltip: 'Générer une facture à partir du devis courant',
@@ -1035,23 +1056,66 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     foregroundColor: Colors.white,
                   ),
                 ),
-              IconButton.filled(
-                onPressed: () {
-                  _openLinesEditor(context, cacheKey, products);
-                },
-                icon: const Icon(Icons.table_chart),
-                tooltip: 'Voir les produits',
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey[600],
-                  foregroundColor: Colors.white,
+              // Bouton "Voir les produits" : masqué si facture confirmée
+              if (latestFacture == null)
+                IconButton.filled(
+                  onPressed: () {
+                    _openLinesEditor(context, cacheKey, products);
+                  },
+                  icon: const Icon(Icons.table_chart),
+                  tooltip: 'Voir les produits',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.grey[600],
+                    foregroundColor: Colors.white,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Dernier devis
-          if (latestDevis != null) ...[
+          // Si facture confirmée : deux boutons simples "Voir le devis" et "Voir la facture"
+          if (latestDevis != null && latestFacture != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openPdf(
+                      context,
+                      latestDevis['pdf_url'] as String,
+                      'Devis ${latestDevis['num_devis'] ?? ''}',
+                    ),
+                    icon: const Icon(Icons.description_outlined),
+                    label: const Text('Voir le devis'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openPdf(
+                      context,
+                      latestFacture['pdf_url'] as String,
+                      'Facture ${latestFacture['num_facture'] ?? ''}',
+                    ),
+                    icon: const Icon(Icons.receipt_long),
+                    label: const Text('Voir la facture'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ] else if (latestDevis != null) ...[
+            // Dernier devis : affiché uniquement si facture non confirmée
             Row(
               children: [
                 const Icon(Icons.description_outlined,
@@ -1076,7 +1140,8 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     icon: const Icon(Icons.visibility, size: 18),
                     label: const Text('Voir'),
                   ),
-                if (devisHistory.isNotEmpty)
+                // Historique des devis : masqué si facture confirmée
+                if (devisHistory.isNotEmpty && latestFacture == null)
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.history, size: 20),
                     tooltip: 'Historique des devis',
@@ -1128,86 +1193,6 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               ],
             ),
             const SizedBox(height: 12),
-          ],
-
-          // Dernière facture
-          if (latestFacture != null) ...[
-            Row(
-              children: [
-                const Icon(Icons.receipt_long,
-                    color: Colors.orange, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Dernière facture : ${latestFacture['num_facture'] ?? 'N/A'}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (latestFacture['pdf_url'] != null)
-                  TextButton.icon(
-                    onPressed: () => _openPdf(
-                      context,
-                      latestFacture['pdf_url'] as String,
-                      'Facture ${latestFacture['num_facture'] ?? ''}',
-                    ),
-                    icon: const Icon(Icons.visibility, size: 18),
-                    label: const Text('Voir'),
-                  ),
-                if (factureHistory.isNotEmpty)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.history, size: 20),
-                    tooltip: 'Historique des factures',
-                    onSelected: (String? pdfUrl) {
-                      if (pdfUrl != null) {
-                        try {
-                          final item = factureHistory.firstWhere(
-                            (e) => e['pdf_url'] == pdfUrl,
-                          );
-                          _openPdf(
-                            context,
-                            pdfUrl,
-                            'Facture ${item['num_facture'] ?? ''}',
-                          );
-                        } catch (_) {
-                          // Si l'élément n'est pas trouvé, ouvrir quand même le PDF
-                          _openPdf(context, pdfUrl, 'Facture');
-                        }
-                      }
-                    },
-                    itemBuilder: (BuildContext context) {
-                      return factureHistory.map((item) {
-                        final pdfUrl = item['pdf_url'] as String?;
-                        return PopupMenuItem<String>(
-                          value: pdfUrl,
-                          enabled: pdfUrl != null,
-                          child: Row(
-                            children: [
-                              const Icon(Icons.receipt_long,
-                                  size: 18, color: Colors.orange),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '${item['timestamp'] ?? ''} — ${item['num_facture'] ?? ''}',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: pdfUrl != null
-                                        ? Colors.black87
-                                        : Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
           ],
 
         ],
@@ -2195,6 +2180,97 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               child: const Text('Confirmer'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showFactureBrouillonMenu(
+    BuildContext context,
+    Map<String, dynamic>? facturePreview,
+    Map<String, dynamic>? latestFacture,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext ctx) {
+        final String? previewUrl =
+            facturePreview != null ? facturePreview['pdf_url'] as String? : null;
+        final String title =
+            'Facture ${facturePreview?['num_facture'] ?? latestFacture?['num_facture'] ?? ''}';
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Brouillon de facture',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (previewUrl != null)
+                ListTile(
+                  leading: const Icon(Icons.visibility),
+                  title: const Text('Aperçu de la facture'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _openPdf(context, previewUrl, title);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Mettre à jour la facture'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _apiService.generateNewDocFacturePreview(
+                    campagneId: widget.campaignId,
+                    tabTag: widget.tabTag,
+                    formTag: field.tag,
+                  );
+                  if (widget.onRefreshRequested != null) {
+                    widget.onRefreshRequested!();
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.check, color: Colors.green),
+                title: const Text('Confirmer la facture'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _apiService.confirmNewDocFacturePreview(
+                    campagneId: widget.campaignId,
+                    tabTag: widget.tabTag,
+                    formTag: field.tag,
+                  );
+                  if (widget.onRefreshRequested != null) {
+                    widget.onRefreshRequested!();
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Annuler le brouillon'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _apiService.cancelNewDocFacturePreview(
+                    campagneId: widget.campaignId,
+                    tabTag: widget.tabTag,
+                    formTag: field.tag,
+                  );
+                  if (widget.onRefreshRequested != null) {
+                    widget.onRefreshRequested!();
+                  }
+                },
+              ),
+            ],
+          ),
         );
       },
     );
