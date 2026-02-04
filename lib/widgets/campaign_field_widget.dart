@@ -938,6 +938,12 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
 
+    final Map<String, dynamic>? devisPreview =
+        data['preview_devis'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(data['preview_devis'] as Map)
+            : null;
+    final bool hasDevisPreview = devisPreview != null;
+
     // Charger les lignes depuis l'API et mettre à jour le cache
     final apiLinesRaw = data['product_lines'] as List<dynamic>? ?? [];
     
@@ -987,9 +993,17 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               if (factureHistory.isEmpty)
                 IconButton.filled(
                   onPressed: () async {
-                    final confirmed = await _confirmGenerateDevis(context);
-                    if (confirmed == true) {
-                      await _handleGenerateDevis();
+                    if (!hasDevisPreview) {
+                      final confirmed = await _confirmGenerateDevis(context);
+                      if (confirmed == true) {
+                        await _handleGenerateDevis();
+                      }
+                    } else {
+                      await _showDevisBrouillonMenu(
+                        context,
+                        devisPreview,
+                        latestDevis,
+                      );
                     }
                   },
                   icon: const Icon(Icons.description_outlined),
@@ -1003,6 +1017,15 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               if (latestDevis != null)
                 IconButton.filled(
                   onPressed: () async {
+                    // Même comportement que sur le web :
+                    // - Première facture : afficher un avertissement avant de générer.
+                    // - Factures suivantes : générer directement.
+                    if (factureHistory.isEmpty) {
+                      final confirmed = await _confirmGenerateFacture(context);
+                      if (confirmed != true) {
+                        return;
+                      }
+                    }
                     await _handleGenerateFacture();
                   },
                   icon: const Icon(Icons.receipt_long),
@@ -1815,7 +1838,9 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
   Future<void> _handleGenerateDevis() async {
     try {
-      await _apiService.generateNewDocDevis(
+      // Nouveau flux: générer d'abord un devis en mode "aperçu" (brouillon),
+      // aligné avec le comportement de la version web.
+      await _apiService.generateNewDocDevisPreview(
         campagneId: widget.campaignId,
         tabTag: widget.tabTag,
         formTag: field.tag,
@@ -1829,6 +1854,97 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
       // ignore: avoid_print
       print('Erreur génération devis: $e');
     }
+  }
+
+  Future<void> _showDevisBrouillonMenu(
+    BuildContext context,
+    Map<String, dynamic>? devisPreview,
+    Map<String, dynamic>? latestDevis,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext ctx) {
+        final String? previewUrl =
+            devisPreview != null ? devisPreview['pdf_url'] as String? : null;
+        final String previewTitle =
+            'Devis ${devisPreview?['num_devis'] ?? latestDevis?['num_devis'] ?? ''}';
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Brouillon de devis',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (previewUrl != null)
+                ListTile(
+                  leading: const Icon(Icons.visibility),
+                  title: const Text('Aperçu du devis'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _openPdf(context, previewUrl, previewTitle);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Mettre à jour le devis'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _apiService.generateNewDocDevisPreview(
+                    campagneId: widget.campaignId,
+                    tabTag: widget.tabTag,
+                    formTag: field.tag,
+                  );
+                  if (widget.onRefreshRequested != null) {
+                    widget.onRefreshRequested!();
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.check, color: Colors.green),
+                title: const Text('Confirmer le devis'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _apiService.confirmNewDocDevisPreview(
+                    campagneId: widget.campaignId,
+                    tabTag: widget.tabTag,
+                    formTag: field.tag,
+                  );
+                  if (widget.onRefreshRequested != null) {
+                    widget.onRefreshRequested!();
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Annuler le brouillon'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _apiService.cancelNewDocDevisPreview(
+                    campagneId: widget.campaignId,
+                    tabTag: widget.tabTag,
+                    formTag: field.tag,
+                  );
+                  if (widget.onRefreshRequested != null) {
+                    widget.onRefreshRequested!();
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _handleGenerateFacture() async {
@@ -2042,6 +2158,32 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
           content: const Text(
             'Vous êtes sur le point de générer un devis.\n\n'
             'Attention : une fois le devis généré, vous ne pourrez plus le modifier ni en générer un nouveau pour ce document.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Confirmer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _confirmGenerateFacture(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Générer une facture'),
+          content: const Text(
+            'Attention : une fois la facture générée, vous ne pourrez plus modifier '
+            'ou régénérer le devis associé.\n\n'
+            'Voulez-vous continuer ?',
           ),
           actions: [
             TextButton(

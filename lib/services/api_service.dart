@@ -881,6 +881,67 @@ class ApiService {
   // NEWDOCGENERATOR - Génération devis / facture & lignes produits
   // ============================================================
 
+  /// Génère un devis en mode "prévisualisation" (brouillon) pour un champ newdocgenerator.
+  /// Utilise l'endpoint /devis/preview (nouveau flux aligné avec le web).
+  Future<void> generateNewDocDevisPreview({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/devis/preview');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ??
+          'Erreur lors de la génération de la prévisualisation du devis');
+    }
+  }
+
+  /// Confirme la prévisualisation de devis (brouillon) pour un champ newdocgenerator.
+  Future<void> confirmNewDocDevisPreview({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/devis/confirm');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ??
+          'Erreur lors de la confirmation du devis');
+    }
+  }
+
+  /// Annule la prévisualisation de devis (brouillon) pour un champ newdocgenerator.
+  Future<void> cancelNewDocDevisPreview({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/devis/cancel');
+
+    final response = await http.post(uri, headers: headers);
+    _handleAuthError(response);
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      throw Exception(jsonData['message'] ??
+          'Erreur lors de l\'annulation du brouillon de devis');
+    }
+  }
+
   Future<void> generateNewDocDevis({
     required int campagneId,
     required String tabTag,
