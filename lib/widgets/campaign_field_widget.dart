@@ -2655,16 +2655,18 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                           ],
                         ),
                       ),
-                      // Liste des lignes
+                      // Liste des lignes (drag & drop)
                       Expanded(
                         child: lines.isEmpty
                             ? Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.inbox_outlined, 
-                                         size: 64, 
-                                         color: Colors.grey[400]),
+                                    Icon(
+                                      Icons.inbox_outlined,
+                                      size: 64,
+                                      color: Colors.grey[400],
+                                    ),
                                     const SizedBox(height: 16),
                                     Text(
                                       'Aucune ligne de produit',
@@ -2684,83 +2686,184 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                                   ],
                                 ),
                               )
-                            : ListView.builder(
-                                controller: scrollController,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: lines.length,
-                                itemBuilder: (context, index) {
-                            final line = lines[index];
-                            final title = line['title']?.toString() ?? 
-                                line['Titre']?.toString() ?? 
-                                'Ligne ${index + 1}';
-                            final qte = (line['quantite'] ?? 0).toString();
-                            final pu = (line['prix_unitaire'] ?? 0).toString();
-                            final totalTtc = ((line['TotalTtc'] ?? 
-                                line['total_ttc'] ?? 
-                                line['TotalTTC'] ?? 
-                                0).toDouble()).toStringAsFixed(2);
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            title,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '$qte × ${double.tryParse(pu)?.toStringAsFixed(2) ?? pu} €',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(
-                                      '$totalTtc €',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, color: Colors.blue),
-                                      onPressed: () {
-                                        _openLineEditor(context, cacheKey, index, products, setModalState);
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        setModalState(() {
-                                          _newDocLinesCache[cacheKey]!.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                  ],
+                            : ReorderableListView.builder(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
                                 ),
+                                itemCount: lines.length,
+                                buildDefaultDragHandles: false,
+                                onReorder: (oldIndex, newIndex) {
+                                  setModalState(() {
+                                    final list = _newDocLinesCache[cacheKey]!;
+                                    if (newIndex > oldIndex) {
+                                      newIndex -= 1;
+                                    }
+                                    final moved = list.removeAt(oldIndex);
+                                    list.insert(newIndex, moved);
+                                    // Met à jour le champ "order" pour rester cohérent avec le web
+                                    for (var i = 0; i < list.length; i++) {
+                                      list[i]['order'] = i;
+                                    }
+                                  });
+                                },
+                                itemBuilder: (context, index) {
+                                  final line = lines[index];
+                                  final title = line['title']?.toString() ??
+                                      line['Titre']?.toString() ??
+                                      'Ligne ${index + 1}';
+                                  final qte =
+                                      (line['quantite'] ?? 0).toString();
+                                  final pu =
+                                      (line['prix_unitaire'] ?? 0).toString();
+                                  final totalTtc = ((line['TotalTtc'] ??
+                                              line['total_ttc'] ??
+                                              line['TotalTTC'] ??
+                                              0)
+                                          .toDouble())
+                                      .toStringAsFixed(2);
+
+                                  return ReorderableDragStartListener(
+                                    key: ValueKey(line['index'] ?? index),
+                                    index: index,
+                                    child: Card(
+                                      margin:
+                                          const EdgeInsets.only(bottom: 12),
+                                      elevation: 1,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            // Zone texte + montant : occupe toute la largeur dispo
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    title,
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          '$qte × ${double.tryParse(pu)?.toStringAsFixed(2) ?? pu} €',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            color: Colors
+                                                                .grey[600],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        '$totalTtc €',
+                                                        style: const TextStyle(
+                                                          fontSize: 18,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              Colors.black87,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            // Boutons d'action à droite
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.edit,
+                                                color: Colors.blue,
+                                              ),
+                                              onPressed: () {
+                                                _openLineEditor(
+                                                  context,
+                                                  cacheKey,
+                                                  index,
+                                                  products,
+                                                  setModalState,
+                                                );
+                                              },
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete,
+                                                color: Colors.red,
+                                              ),
+                                              onPressed: () async {
+                                                final confirm =
+                                                    await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (dialogCtx) {
+                                                    return AlertDialog(
+                                                      title: const Text(
+                                                          'Supprimer la ligne'),
+                                                      content: const Text(
+                                                          'Voulez-vous vraiment supprimer cette ligne de produit ?'),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      dialogCtx)
+                                                                  .pop(false),
+                                                          child: const Text(
+                                                              'Annuler'),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                      dialogCtx)
+                                                                  .pop(true),
+                                                          child: const Text(
+                                                            'Supprimer',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.red,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
+                                                );
+
+                                                if (confirm == true) {
+                                                  setModalState(() {
+                                                    final list =
+                                                        _newDocLinesCache[
+                                                            cacheKey]!;
+                                                    list.removeAt(index);
+                                                    for (var i = 0;
+                                                        i < list.length;
+                                                        i++) {
+                                                      list[i]['order'] = i;
+                                                    }
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
                       ),
                       // Bouton Ajouter une ligne
                       Padding(
@@ -2781,7 +2884,9 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                                 final randomPart = random.nextInt(1000000);
                                 final index = '${timestamp.toRadixString(36)}$randomPart';
                                 
-                                _newDocLinesCache[cacheKey]!.add({
+                                final list = _newDocLinesCache[cacheKey]!;
+                                final order = list.length;
+                                list.add({
                                   'index': index,
                                   'title': '',
                                   'description': '',
@@ -2791,6 +2896,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                                   'TotalHt': 0,
                                   'Tva': 0,
                                   'TotalTtc': 0,
+                                  'order': order,
                                 });
                               });
                             },
