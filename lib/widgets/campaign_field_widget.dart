@@ -2297,729 +2297,844 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
   }
 
   // Ouvrir le popup d'édition d'une ligne
-  void _openLineEditor(BuildContext context, String cacheKey, int index, List<Map<String, dynamic>> products, StateSetter setModalState) {
-    final line = _newDocLinesCache[cacheKey]![index];
+void _openLineEditor(
+  BuildContext context,
+  String cacheKey,
+  int index,
+  List<Map<String, dynamic>> products,
+  StateSetter setModalState,
+) {
+  final line = _newDocLinesCache[cacheKey]![index];
 
-    int? _parseId(dynamic v) {
-      if (v == null) return null;
-      if (v is int) return v;
-      if (v is num) return v.toInt();
-      if (v is String) return int.tryParse(v);
-      return null;
-    }
-
-    // Controllers pour pré-remplir et mettre à jour visuellement les champs
-    final titleController = TextEditingController(
-      text: line['title']?.toString() ?? line['Titre']?.toString() ?? '',
-    );
-    final descController = TextEditingController(
-      text: line['description']?.toString() ?? '',
-    );
-    final qteController = TextEditingController(
-      text: line['quantite']?.toString() ?? '0',
-    );
-    final puController = TextEditingController(
-      text: line['prix_unitaire']?.toString() ?? '0',
-    );
-    final remiseController = TextEditingController(
-      text: line['remise']?.toString() ?? '0',
-    );
-    final tvaController = TextEditingController(
-      text: line['Tva']?.toString() ?? line['tva']?.toString() ?? '0',
-    );
-
-    final initialProduitId = _parseId(line['produit_id']);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (editCtx) {
-        return StatefulBuilder(
-          builder: (context, setEditState) {
-            return DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: 0.8,
-              maxChildSize: 0.95,
-              minChildSize: 0.5,
-              builder: (context, scrollController) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Modifier la ligne',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.of(editCtx).pop(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          children: [
-                            DropdownButtonFormField<int>(
-                              value: initialProduitId,
-                              decoration: const InputDecoration(
-                                labelText: 'Produit',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: products
-                                  .map((p) => DropdownMenuItem<int>(
-                                        value: _parseId(p['id']),
-                                        child: Text(
-                                          (p['label'] ?? p['titre'] ?? '').toString(),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {
-                                setEditState(() {
-                                  _newDocLinesCache[cacheKey]![index]['produit_id'] = value;
-                                  final selected = products.firstWhere(
-                                    (p) => p['id'] == value,
-                                    orElse: () => {},
-                                  );
-                                  if (selected is Map && selected.isNotEmpty) {
-                                    final libelle = selected['titre'] ?? selected['label'] ?? '';
-                                    // Mettre à jour le cache
-                                    _newDocLinesCache[cacheKey]![index]['title'] = libelle;
-                                    _newDocLinesCache[cacheKey]![index]['Titre'] = libelle;
-                                    _newDocLinesCache[cacheKey]![index]['description'] = selected['description'] ?? '';
-                                    _newDocLinesCache[cacheKey]![index]['prix_unitaire'] = selected['prix_unitaire'] ?? 0;
-                                    _newDocLinesCache[cacheKey]![index]['Tva'] = selected['tva'] ?? 0;
-                                    _newDocLinesCache[cacheKey]![index]['tva'] = selected['tva'] ?? 0;
-
-                                    // Mettre à jour visuellement les champs
-                                    titleController.text = libelle.toString();
-                                    descController.text = (selected['description'] ?? '').toString();
-                                    puController.text = (selected['prix_unitaire'] ?? 0).toString();
-                                    tvaController.text = (selected['tva'] ?? 0).toString();
-
-                                    _recomputeLineTotals(cacheKey, index);
-                                  }
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: titleController,
-                              decoration: const InputDecoration(
-                                labelText: 'Titre',
-                                border: OutlineInputBorder(),
-                              ),
-                              onChanged: (val) {
-                                setEditState(() {
-                                  _newDocLinesCache[cacheKey]![index]['title'] = val;
-                                  _newDocLinesCache[cacheKey]![index]['Titre'] = val;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: descController,
-                              decoration: const InputDecoration(
-                                labelText: 'Description',
-                                border: OutlineInputBorder(),
-                              ),
-                              maxLines: 3,
-                              onChanged: (val) {
-                                setEditState(() {
-                                  _newDocLinesCache[cacheKey]![index]['description'] = val;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: qteController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Quantité',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    onChanged: (val) {
-                                      setEditState(() {
-                                        _newDocLinesCache[cacheKey]![index]['quantite'] = val;
-                                        _recomputeLineTotals(cacheKey, index);
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: puController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Prix unitaire',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    onChanged: (val) {
-                                      setEditState(() {
-                                        _newDocLinesCache[cacheKey]![index]['prix_unitaire'] = val;
-                                        _recomputeLineTotals(cacheKey, index);
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: remiseController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Remise (%)',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    onChanged: (val) {
-                                      setEditState(() {
-                                        _newDocLinesCache[cacheKey]![index]['remise'] = val;
-                                        _recomputeLineTotals(cacheKey, index);
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: tvaController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'TVA (%)',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    onChanged: (val) {
-                                      setEditState(() {
-                                        _newDocLinesCache[cacheKey]![index]['Tva'] = val;
-                                        _newDocLinesCache[cacheKey]![index]['tva'] = val;
-                                        _recomputeLineTotals(cacheKey, index);
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Builder(
-                              builder: (context) {
-                                // Lire les totaux depuis le cache à chaque rebuild
-                                final currentLine = _newDocLinesCache[cacheKey]![index];
-                                final totalHt = (currentLine['TotalHt'] ?? currentLine['total_ht'] ?? 0).toDouble();
-                                final totalTva = (currentLine['TotalTva'] ?? currentLine['total_tva'] ?? 0).toDouble();
-                                final totalTtc = (currentLine['TotalTtc'] ?? currentLine['total_ttc'] ?? currentLine['TotalTTC'] ?? 0).toDouble();
-                                
-                                return Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Text(
-                                            'Total HT',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                          ),
-                                          Text(
-                                            '${totalHt.toStringAsFixed(2)} €',
-                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        children: [
-                                          Text(
-                                            'Total TVA',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                          ),
-                                          Text(
-                                            '${totalTva.toStringAsFixed(2)} €',
-                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        children: [
-                                          Text(
-                                            'Total TTC',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                          ),
-                                          Text(
-                                            '${totalTtc.toStringAsFixed(2)} €',
-                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(editCtx).pop();
-                            setModalState(() {}); // Rafraîchir la liste principale
-                          },
-                          child: const Text('Enregistrer'),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
+  int? _parseId(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
   }
 
-  void _openLinesEditor(
-      BuildContext context, String cacheKey, List<Map<String, dynamic>> products) {
-    // S'assurer que le cache existe avant d'ouvrir le modal
-    if (!_newDocLinesCache.containsKey(cacheKey)) {
-      _newDocLinesCache[cacheKey] = [];
-    }
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final lines = _newDocLinesCache[cacheKey] ?? [];
-            final totals = _calculateGlobalTotals(cacheKey);
+  // Controllers pour pré-remplir et mettre à jour visuellement les champs
+  final titleController = TextEditingController(
+    text: line['title']?.toString() ?? line['Titre']?.toString() ?? '',
+  );
+  final descController = TextEditingController(
+    text: line['description']?.toString() ?? '',
+  );
+  final qteController = TextEditingController(
+    text: line['quantite']?.toString() ?? '0',
+  );
+  final puController = TextEditingController(
+    text: line['prix_unitaire']?.toString() ?? '0',
+  );
+  final remiseController = TextEditingController(
+    text: line['remise']?.toString() ?? '0',
+  );
+  final tvaController = TextEditingController(
+    text: line['Tva']?.toString() ?? line['tva']?.toString() ?? '0',
+  );
 
-            return DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: 0.85,
-              maxChildSize: 0.95,
-              minChildSize: 0.5,
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  child: Column(
-                    children: [
-                      // Header avec titre et bouton fermer
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
+  final initialProduitId = _parseId(line['produit_id']);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (editCtx) {
+      return StatefulBuilder(
+        builder: (context, setEditState) {
+          final mediaQuery = MediaQuery.of(context);
+          final isWide = mediaQuery.size.width >= 700;
+          final maxWidth = isWide ? 720.0 : double.infinity;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.8,
+                maxChildSize: 0.95,
+                minChildSize: 0.5,
+                builder: (context, scrollController) {
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 16,
+                      bottom: mediaQuery.viewInsets.bottom + 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              'Voir les produits',
+                              'Modifier la ligne',
                               style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () => Navigator.of(editCtx).pop(),
                             ),
                           ],
                         ),
-                      ),
-                      // Liste des lignes (drag & drop)
-                      Expanded(
-                        child: lines.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.inbox_outlined,
-                                      size: 64,
-                                      color: Colors.grey[400],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Aucune ligne de produit',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Cliquez sur "Ajouter une ligne" pour commencer',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[500],
-                                      ),
-                                    ),
-                                  ],
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: ListView(
+                            controller: scrollController,
+                            children: [
+                              DropdownButtonFormField<int>(
+                                value: initialProduitId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Produit',
+                                  border: OutlineInputBorder(),
                                 ),
-                              )
-                            : ReorderableListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                itemCount: lines.length,
-                                buildDefaultDragHandles: false,
-                                onReorder: (oldIndex, newIndex) {
-                                  setModalState(() {
-                                    final list = _newDocLinesCache[cacheKey]!;
-                                    if (newIndex > oldIndex) {
-                                      newIndex -= 1;
-                                    }
-                                    final moved = list.removeAt(oldIndex);
-                                    list.insert(newIndex, moved);
-                                    // Met à jour le champ "order" pour rester cohérent avec le web
-                                    for (var i = 0; i < list.length; i++) {
-                                      list[i]['order'] = i;
+                                items: products
+                                    .map(
+                                      (p) => DropdownMenuItem<int>(
+                                        value: _parseId(p['id']),
+                                        child: Text(
+                                          (p['label'] ?? p['titre'] ?? '')
+                                              .toString(),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  setEditState(() {
+                                    _newDocLinesCache[cacheKey]![index]
+                                        ['produit_id'] = value;
+                                    final selected = products.firstWhere(
+                                      (p) => p['id'] == value,
+                                      orElse: () => {},
+                                    );
+                                    if (selected is Map &&
+                                        selected.isNotEmpty) {
+                                      final libelle = selected['titre'] ??
+                                          selected['label'] ??
+                                          '';
+                                      // Mettre à jour le cache
+                                      _newDocLinesCache[cacheKey]![index]
+                                          ['title'] = libelle;
+                                      _newDocLinesCache[cacheKey]![index]
+                                          ['Titre'] = libelle;
+                                      _newDocLinesCache[cacheKey]![index]
+                                              ['description'] =
+                                          selected['description'] ?? '';
+                                      _newDocLinesCache[cacheKey]![index]
+                                              ['prix_unitaire'] =
+                                          selected['prix_unitaire'] ?? 0;
+                                      _newDocLinesCache[cacheKey]![index]
+                                              ['Tva'] =
+                                          selected['tva'] ?? 0;
+                                      _newDocLinesCache[cacheKey]![index]
+                                              ['tva'] =
+                                          selected['tva'] ?? 0;
+
+                                      // Mettre à jour visuellement les champs
+                                      titleController.text =
+                                          libelle.toString();
+                                      descController.text =
+                                          (selected['description'] ?? '')
+                                              .toString();
+                                      puController.text =
+                                          (selected['prix_unitaire'] ?? 0)
+                                              .toString();
+                                      tvaController.text =
+                                          (selected['tva'] ?? 0).toString();
+
+                                      _recomputeLineTotals(cacheKey, index);
                                     }
                                   });
                                 },
-                                itemBuilder: (context, index) {
-                                  final line = lines[index];
-                                  final title = line['title']?.toString() ??
-                                      line['Titre']?.toString() ??
-                                      'Ligne ${index + 1}';
-                                  final qte =
-                                      (line['quantite'] ?? 0).toString();
-                                  final pu =
-                                      (line['prix_unitaire'] ?? 0).toString();
-                                  final totalTtc = ((line['TotalTtc'] ??
-                                              line['total_ttc'] ??
-                                              line['TotalTTC'] ??
-                                              0)
-                                          .toDouble())
-                                      .toStringAsFixed(2);
-
-                                  return ReorderableDragStartListener(
-                                    key: ValueKey(line['index'] ?? index),
-                                    index: index,
-                                    child: Card(
-                                      margin:
-                                          const EdgeInsets.only(bottom: 12),
-                                      elevation: 1,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: titleController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Titre',
+                                  border: OutlineInputBorder(),
+                                ),
+                                onChanged: (val) {
+                                  setEditState(() {
+                                    _newDocLinesCache[cacheKey]![index]
+                                        ['title'] = val;
+                                    _newDocLinesCache[cacheKey]![index]
+                                        ['Titre'] = val;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: descController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Description',
+                                  border: OutlineInputBorder(),
+                                ),
+                                maxLines: 3,
+                                onChanged: (val) {
+                                  setEditState(() {
+                                    _newDocLinesCache[cacheKey]![index]
+                                            ['description'] =
+                                        val;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: qteController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Quantité',
+                                        border: OutlineInputBorder(),
                                       ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            // Zone texte + montant : occupe toute la largeur dispo
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    title,
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          '$qte × ${double.tryParse(pu)?.toStringAsFixed(2) ?? pu} €',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            color: Colors
-                                                                .grey[600],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        '$totalTtc €',
-                                                        style: const TextStyle(
-                                                          fontSize: 18,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color:
-                                                              Colors.black87,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            // Boutons d'action à droite
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.edit,
-                                                color: Colors.blue,
-                                              ),
-                                              onPressed: () {
-                                                _openLineEditor(
-                                                  context,
-                                                  cacheKey,
-                                                  index,
-                                                  products,
-                                                  setModalState,
-                                                );
-                                              },
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.delete,
-                                                color: Colors.red,
-                                              ),
-                                              onPressed: () async {
-                                                final confirm =
-                                                    await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (dialogCtx) {
-                                                    return AlertDialog(
-                                                      title: const Text(
-                                                          'Supprimer la ligne'),
-                                                      content: const Text(
-                                                          'Voulez-vous vraiment supprimer cette ligne de produit ?'),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () =>
-                                                              Navigator.of(
-                                                                      dialogCtx)
-                                                                  .pop(false),
-                                                          child: const Text(
-                                                              'Annuler'),
-                                                        ),
-                                                        TextButton(
-                                                          onPressed: () =>
-                                                              Navigator.of(
-                                                                      dialogCtx)
-                                                                  .pop(true),
-                                                          child: const Text(
-                                                            'Supprimer',
-                                                            style: TextStyle(
-                                                              color:
-                                                                  Colors.red,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    );
-                                                  },
-                                                );
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      onChanged: (val) {
+                                        setEditState(() {
+                                          _newDocLinesCache[cacheKey]![index]
+                                              ['quantite'] = val;
+                                          _recomputeLineTotals(
+                                              cacheKey, index);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: puController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Prix unitaire',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      onChanged: (val) {
+                                        setEditState(() {
+                                          _newDocLinesCache[cacheKey]![index]
+                                              ['prix_unitaire'] = val;
+                                          _recomputeLineTotals(
+                                              cacheKey, index);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: remiseController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Remise (%)',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      onChanged: (val) {
+                                        setEditState(() {
+                                          _newDocLinesCache[cacheKey]![index]
+                                              ['remise'] = val;
+                                          _recomputeLineTotals(
+                                              cacheKey, index);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: tvaController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'TVA (%)',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      onChanged: (val) {
+                                        setEditState(() {
+                                          _newDocLinesCache[cacheKey]![index]
+                                              ['Tva'] = val;
+                                          _newDocLinesCache[cacheKey]![index]
+                                              ['tva'] = val;
+                                          _recomputeLineTotals(
+                                              cacheKey, index);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Builder(
+                                builder: (context) {
+                                  final currentLine =
+                                      _newDocLinesCache[cacheKey]![index];
+                                  final totalHt = (currentLine['TotalHt'] ??
+                                          currentLine['total_ht'] ??
+                                          0)
+                                      .toDouble();
+                                  final totalTva = (currentLine['TotalTva'] ??
+                                          currentLine['total_tva'] ??
+                                          0)
+                                      .toDouble();
+                                  final totalTtc =
+                                      (currentLine['TotalTtc'] ??
+                                              currentLine['total_ttc'] ??
+                                              currentLine['TotalTTC'] ??
+                                              0)
+                                          .toDouble();
 
-                                                if (confirm == true) {
-                                                  setModalState(() {
-                                                    final list =
-                                                        _newDocLinesCache[
-                                                            cacheKey]!;
-                                                    list.removeAt(index);
-                                                    for (var i = 0;
-                                                        i < list.length;
-                                                        i++) {
-                                                      list[i]['order'] = i;
-                                                    }
-                                                  });
-                                                }
-                                              },
+                                  return Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        Column(
+                                          children: [
+                                            Text(
+                                              'Total HT',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                            Text(
+                                              '${totalHt.toStringAsFixed(2)} €',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ],
                                         ),
-                                      ),
+                                        Column(
+                                          children: [
+                                            Text(
+                                              'Total TVA',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                            Text(
+                                              '${totalTva.toStringAsFixed(2)} €',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Column(
+                                          children: [
+                                            Text(
+                                              'Total TTC',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                            Text(
+                                              '${totalTtc.toStringAsFixed(2)} €',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },
                               ),
-                      ),
-                      // Bouton Ajouter une ligne
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Card(
-                          elevation: 0,
-                          color: Colors.grey[50],
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey[300]!),
+                            ],
                           ),
-                          child: InkWell(
-                            onTap: () {
-                              setModalState(() {
-                                // Générer un index unique comme sur le web (uniqid-like)
-                                final random = Random();
-                                final timestamp = DateTime.now().millisecondsSinceEpoch;
-                                final randomPart = random.nextInt(1000000);
-                                final index = '${timestamp.toRadixString(36)}$randomPart';
-                                
-                                final list = _newDocLinesCache[cacheKey]!;
-                                final order = list.length;
-                                list.add({
-                                  'index': index,
-                                  'title': '',
-                                  'description': '',
-                                  'quantite': 0,
-                                  'prix_unitaire': 0,
-                                  'remise': 0,
-                                  'TotalHt': 0,
-                                  'Tva': 0,
-                                  'TotalTtc': 0,
-                                  'order': order,
-                                });
-                              });
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(editCtx).pop();
+                              setModalState(() {}); // Rafraîchir la liste
                             },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                            child: const Text('Enregistrer'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+  void _openLinesEditor(
+    BuildContext context, String cacheKey, List<Map<String, dynamic>> products) {
+  // S'assurer que le cache existe avant d'ouvrir le modal
+  if (!_newDocLinesCache.containsKey(cacheKey)) {
+    _newDocLinesCache[cacheKey] = [];
+  }
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setModalState) {
+          final lines = _newDocLinesCache[cacheKey] ?? [];
+          final totals = _calculateGlobalTotals(cacheKey);
+
+          final mediaQuery = MediaQuery.of(context);
+          final isWide = mediaQuery.size.width >= 700;
+          final maxWidth = isWide ? 720.0 : double.infinity;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.85,
+                maxChildSize: 0.95,
+                minChildSize: 0.5,
+                builder: (context, scrollController) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    child: Column(
+                      children: [
+                        // Header avec titre et bouton fermer
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Voir les produits',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Liste des lignes (drag & drop)
+                        Expanded(
+                          child: lines.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.inbox_outlined,
+                                        size: 64,
+                                        color: Colors.grey[400],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Aucune ligne de produit',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Cliquez sur "Ajouter une ligne" pour commencer',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ReorderableListView.builder(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  itemCount: lines.length,
+                                  buildDefaultDragHandles: false,
+                                  onReorder: (oldIndex, newIndex) {
+                                    setModalState(() {
+                                      final list =
+                                          _newDocLinesCache[cacheKey]!;
+                                      if (newIndex > oldIndex) {
+                                        newIndex -= 1;
+                                      }
+                                      final moved = list.removeAt(oldIndex);
+                                      list.insert(newIndex, moved);
+                                      // Met à jour le champ "order"
+                                      for (var i = 0; i < list.length; i++) {
+                                        list[i]['order'] = i;
+                                      }
+                                    });
+                                  },
+                                  itemBuilder: (context, index) {
+                                    final line = lines[index];
+                                    final title = line['title']?.toString() ??
+                                        line['Titre']?.toString() ??
+                                        'Ligne ${index + 1}';
+                                    final qte =
+                                        (line['quantite'] ?? 0).toString();
+                                    final pu =
+                                        (line['prix_unitaire'] ?? 0).toString();
+                                    final totalTtc = ((line['TotalTtc'] ??
+                                                line['total_ttc'] ??
+                                                line['TotalTTC'] ??
+                                                0)
+                                            .toDouble())
+                                        .toStringAsFixed(2);
+
+                                    return ReorderableDragStartListener(
+                                      key: ValueKey(line['index'] ?? index),
+                                      index: index,
+                                      child: Card(
+                                        margin:
+                                            const EdgeInsets.only(bottom: 12),
+                                        elevation: 1,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              // Zone texte + montant
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      title,
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            '$qte × ${double.tryParse(pu)?.toStringAsFixed(2) ?? pu} €',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              color: Colors
+                                                                  .grey[600],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 8),
+                                                        Text(
+                                                          '$totalTtc €',
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color:
+                                                                Colors.black87,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              // Boutons d'action à droite
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.edit,
+                                                  color: Colors.blue,
+                                                ),
+                                                onPressed: () {
+                                                  _openLineEditor(
+                                                    context,
+                                                    cacheKey,
+                                                    index,
+                                                    products,
+                                                    setModalState,
+                                                  );
+                                                },
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.delete,
+                                                  color: Colors.red,
+                                                ),
+                                                onPressed: () async {
+                                                  final confirm =
+                                                      await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (dialogCtx) {
+                                                      return AlertDialog(
+                                                        title: const Text(
+                                                            'Supprimer la ligne'),
+                                                        content: const Text(
+                                                            'Voulez-vous vraiment supprimer cette ligne de produit ?'),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                        dialogCtx)
+                                                                    .pop(false),
+                                                            child: const Text(
+                                                                'Annuler'),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                        dialogCtx)
+                                                                    .pop(true),
+                                                            child: const Text(
+                                                              'Supprimer',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    Colors.red,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
+                                                  );
+
+                                                  if (confirm == true) {
+                                                    setModalState(() {
+                                                      final list =
+                                                          _newDocLinesCache[
+                                                              cacheKey]!;
+                                                      list.removeAt(index);
+                                                      for (var i = 0;
+                                                          i < list.length;
+                                                          i++) {
+                                                        list[i]['order'] = i;
+                                                      }
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        // Bouton Ajouter une ligne
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Card(
+                            elevation: 0,
+                            color: Colors.grey[50],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                setModalState(() {
+                                  final random = Random();
+                                  final timestamp = DateTime.now()
+                                      .millisecondsSinceEpoch;
+                                  final randomPart =
+                                      random.nextInt(1000000);
+                                  final index =
+                                      '${timestamp.toRadixString(36)}$randomPart';
+
+                                  final list =
+                                      _newDocLinesCache[cacheKey]!;
+                                  final order = list.length;
+                                  list.add({
+                                    'index': index,
+                                    'title': '',
+                                    'description': '',
+                                    'quantite': 0,
+                                    'prix_unitaire': 0,
+                                    'remise': 0,
+                                    'TotalHt': 0,
+                                    'Tva': 0,
+                                    'TotalTtc': 0,
+                                    'order': order,
+                                  });
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add, color: Colors.blue[700]),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Ajouter une ligne',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.blue[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Footer avec totaux et bouton Enregistrer
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Totaux en readonly
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Icon(Icons.add, color: Colors.blue[700]),
-                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Total TTC',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'HT: ${totals['total_ht']!.toStringAsFixed(2)} € | TVA: ${totals['total_tva']!.toStringAsFixed(2)} €',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   Text(
-                                    'Ajouter une ligne',
+                                    '${totals['total_ttc']!.toStringAsFixed(2)} €',
                                     style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
                                       color: Colors.blue[700],
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Footer avec totaux et bouton Enregistrer
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, -2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            // Totaux en readonly
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Total TTC',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'HT: ${totals['total_ht']!.toStringAsFixed(2)} € | TVA: ${totals['total_tva']!.toStringAsFixed(2)} €',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  '${totals['total_ttc']!.toStringAsFixed(2)} €',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue[700],
+                              const SizedBox(height: 16),
+                              // Bouton Enregistrer
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    try {
+                                      await _handleSaveProductLines(cacheKey);
+                                      if (ctx.mounted) {
+                                        Navigator.of(ctx).pop();
+                                      }
+                                    } catch (e) {
+                                      if (ctx.mounted) {
+                                        ScaffoldMessenger.of(ctx).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Erreur lors de la sauvegarde: $e',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.save, size: 20),
+                                  label: const Text(
+                                    'Enregistrer',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            // Bouton Enregistrer
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  try {
-                                    await _handleSaveProductLines(cacheKey);
-                                    if (ctx.mounted) {
-                                      Navigator.of(ctx).pop();
-                                    }
-                                  } catch (e) {
-                                    // Afficher une erreur si la sauvegarde échoue
-                                    if (ctx.mounted) {
-                                      ScaffoldMessenger.of(ctx).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Erreur lors de la sauvegarde: $e'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.save, size: 20),
-                                label: const Text(
-                                  'Enregistrer',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  backgroundColor: Colors.blue,
-                                  foregroundColor: Colors.white,
-                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 }
 
 // Widget avec retry automatique et délai
