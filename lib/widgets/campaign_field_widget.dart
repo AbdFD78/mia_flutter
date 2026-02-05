@@ -2349,7 +2349,10 @@ void _openLineEditor(
 
           return Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                maxHeight: mediaQuery.size.height * 0.8,
+              ),
               child: DraggableScrollableSheet(
                 expand: false,
                 initialChildSize: 0.8,
@@ -2722,7 +2725,10 @@ void _openLineEditor(
 
           return Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                maxHeight: mediaQuery.size.height * 0.8,
+              ),
               child: DraggableScrollableSheet(
                 expand: false,
                 initialChildSize: 0.85,
