@@ -66,11 +66,19 @@ class AppDrawer extends StatelessWidget {
                     title: 'Calendrier',
                     route: '/calendar',
                   ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.track_changes_outlined,
-                    title: 'Suivies clients',
-                    route: '/activities',
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, _) {
+                      final perms = authProvider.user?.permissions ?? const [];
+                      if (!perms.contains('ACCESS_SUIVIES_CLIENTS')) {
+                        return const SizedBox.shrink();
+                      }
+                      return _buildMenuItem(
+                        context,
+                        icon: Icons.track_changes_outlined,
+                        title: 'Suivies clients',
+                        route: '/activities',
+                      );
+                    },
                   ),
                 ],
               ),

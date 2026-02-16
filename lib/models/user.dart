@@ -12,6 +12,7 @@ class User {
   final String? clientName;
   final int? userTypeId;
   final String? userTypeName;
+  final List<String> permissions;
 
   User({
     required this.id,
@@ -23,10 +24,17 @@ class User {
     this.clientName,
     this.userTypeId,
     this.userTypeName,
+    this.permissions = const [],
   });
 
   // Créer un User depuis JSON (données de l'API)
   factory User.fromJson(Map<String, dynamic> json) {
+    List<String> perms = const [];
+    final rawPerms = json['permissions'];
+    if (rawPerms is List) {
+      perms = rawPerms.map((e) => e.toString()).toList();
+    }
+
     return User(
       id: json['id'],
       name: json['name'],
@@ -37,6 +45,7 @@ class User {
       clientName: json['client_name'],
       userTypeId: json['user_type_id'],
       userTypeName: json['user_type_name'],
+      permissions: perms,
     );
   }
 
@@ -52,6 +61,7 @@ class User {
       'client_name': clientName,
       'user_type_id': userTypeId,
       'user_type_name': userTypeName,
+      'permissions': permissions,
     };
   }
 
@@ -76,6 +86,7 @@ class User {
     String? clientName,
     int? userTypeId,
     String? userTypeName,
+    List<String>? permissions,
   }) {
     return User(
       id: id ?? this.id,
@@ -87,6 +98,7 @@ class User {
       clientName: clientName ?? this.clientName,
       userTypeId: userTypeId ?? this.userTypeId,
       userTypeName: userTypeName ?? this.userTypeName,
+      permissions: permissions ?? this.permissions,
     );
   }
 }

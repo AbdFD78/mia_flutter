@@ -1,7 +1,10 @@
 // lib/screens/clients_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../models/client.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
 import 'client_detail_screen.dart';
@@ -51,12 +54,28 @@ void initState() {
         clientTypeId: _selectedClientTypeId,
         statusId: _selectedStatusId,
       );
-      
+
+      if (!mounted) return;
+
+      // Filtrage supplémentaire côté client en fonction de l'utilisateur connecté
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.user;
+
+      List<Client> clients = result['clients'] as List<Client>;
+
+      // Si l'utilisateur est rattaché à un client spécifique, ne montrer que ce client
+      if (user?.clientId != null) {
+        final userClientId = user!.clientId!;
+        clients = clients.where((c) => c.id == userClientId).toList();
+      }
+
       setState(() {
-        _allClients = result['clients'] as List<Client>;
+        _allClients = clients;
         _filteredClients = _allClients;
-        _clientTypes = List<Map<String, dynamic>>.from(result['client_types'] ?? []);
-        _statuses = List<Map<String, dynamic>>.from(result['statuses'] ?? []);
+        _clientTypes =
+            List<Map<String, dynamic>>.from(result['client_types'] ?? []);
+        _statuses =
+            List<Map<String, dynamic>>.from(result['statuses'] ?? []);
         _isLoading = false;
       });
     } catch (e) {
