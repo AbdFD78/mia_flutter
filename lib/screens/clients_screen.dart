@@ -57,16 +57,28 @@ void initState() {
 
       if (!mounted) return;
 
-      // Filtrage supplémentaire côté client en fonction de l'utilisateur connecté
+      // Filtrage supplémentaire côté client en fonction de l'utilisateur connecté,
+      // pour reproduire la logique du Livewire ClientSearch (web).
       final authProvider = context.read<AuthProvider>();
       final user = authProvider.user;
 
       List<Client> clients = result['clients'] as List<Client>;
 
-      // Si l'utilisateur est rattaché à un client spécifique, ne montrer que ce client
-      if (user?.clientId != null) {
-        final userClientId = user!.clientId!;
-        clients = clients.where((c) => c.id == userClientId).toList();
+      if (user != null) {
+        final userTypeId = user.userTypeId;
+        final userClientId = user.clientId;
+
+        // Même logique que sur le web :
+        // - superadmin (user_type_id = 23) ou client0 (client_id = 140) voient tous les clients
+        // - sinon, uniquement le client de l'utilisateur et ses clients délégués (parent_id)
+        final canViewAllClients =
+            (userTypeId == 23) || (userClientId == 140);
+
+        if (!canViewAllClients && userClientId != null) {
+          clients = clients.where((c) {
+            return c.id == userClientId || c.parentId == userClientId;
+          }).toList();
+        }
       }
 
       setState(() {
@@ -112,17 +124,14 @@ void initState() {
         
         // Recherche dans ville
         final matchVille = client.ville?.toLowerCase().contains(query) ?? false;
-        
-        // Debug : afficher ce qu'on cherche
-        print('🔍 Recherche: "$query"');
-        print('   Raison sociale: "${client.raisonSociale.toLowerCase()}" -> $matchRaison');
-        print('   Type: "${client.clientType.name.toLowerCase()}" -> $matchType');
-        print('   Statut: "${client.status.name.toLowerCase()}" -> $matchStatus');
-        
-        return matchRaison || matchEmail || matchTel || matchType || matchStatus || matchVille;
+                
+        return matchRaison ||
+            matchEmail ||
+            matchTel ||
+            matchType ||
+            matchStatus ||
+            matchVille;
       }).toList();
-      
-      print('📊 Résultats: ${_filteredClients.length} client(s) trouvé(s)');
     }
   });
 }

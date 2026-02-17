@@ -43,13 +43,16 @@ class ApiService {
   Future<Map<String, dynamic>> getClients({
     int? clientTypeId,
     int? statusId,
+    int perPage = 100,
   }) async {
     try {
       final headers = await _getHeaders();
       
       // Construire l'URL avec paramètres
       var url = '$baseUrl/clients';
-      final queryParams = <String, String>{};
+      final queryParams = <String, String>{
+        'per_page': perPage.toString(),
+      };
       
       if (clientTypeId != null) {
         queryParams['client_type_id'] = clientTypeId.toString();

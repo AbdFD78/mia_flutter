@@ -2,6 +2,7 @@
 
 class Client {
   final int id;
+  final int? parentId;
   final String raisonSociale;
   final String? email;
   final String? telephone;
@@ -26,6 +27,7 @@ class Client {
 
   Client({
     required this.id,
+    this.parentId,
     required this.raisonSociale,
     this.email,
     this.telephone,
@@ -50,6 +52,7 @@ class Client {
   factory Client.fromJson(Map<String, dynamic> json) {
     return Client(
       id: json['id'],
+      parentId: json['parent_id'],
       raisonSociale: json['raison_sociale'],
       email: json['email'],
       telephone: json['telephone'],
