@@ -48,3 +48,4 @@ app.*.map.json
 # Clé release Android (ne jamais versionner)
 android/key.properties
 android/app/mia-release-key.jksios/build
+ios/build/
