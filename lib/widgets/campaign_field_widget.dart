@@ -4009,6 +4009,7 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
                           final user = comment['user'] as Map<String, dynamic>? ?? {};
                           final name = user['name']?.toString() ?? 'Utilisateur';
                           final message = comment['message']?.toString() ?? '';
+                          final isDeleted = (comment['is_deleted'] == true);
                           final createdAt = comment['created_at']?.toString() ?? '';
                           final picture = user['picture']?.toString();
 
@@ -4057,9 +4058,10 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
                                       const SizedBox(height: 4),
                                       Text(
                                         message,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
                                           fontSize: 13,
+                                          fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
+                                          color: isDeleted ? Colors.white70 : Colors.white,
                                         ),
                                       ),
                                     ],

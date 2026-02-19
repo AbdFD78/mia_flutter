@@ -1199,6 +1199,29 @@ class ApiService {
     }
   }
 
+  /// Supprimer (soft delete) un commentaire média
+  Future<Map<String, dynamic>> deleteMediaComment(int commentId) async {
+    try {
+      final headers = await _getHeaders();
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/mobile/media-comments/$commentId'),
+        headers: headers,
+      );
+
+      if (response.statusCode != 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['error'] ?? jsonData['message'] ?? 'Erreur lors de la suppression du commentaire');
+      }
+
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      return jsonData;
+    } catch (e) {
+      print('Erreur lors de la suppression du commentaire média: $e');
+      rethrow;
+    }
+  }
+
   /// Suppression d'un média pour un champ mediauploader (par index)
   Future<List<String>> deleteMedia({
     required int campagneId,
