@@ -760,39 +760,62 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               itemBuilder: (context, index) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      // Ouvrir le carrousel en plein écran
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => _MediaCarouselScreen(
-                            mediaUrls: mediaUrls,
-                            initialIndex: index,
+                  child: Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          // Ouvrir le carrousel en plein écran
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => _MediaCarouselScreen(
+                                mediaUrls: mediaUrls,
+                                initialIndex: index,
+                              ),
+                            ),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: _NetworkImageWithRetry(
+                              url: mediaUrls[index],
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                              cacheWidth: 80,
+                              cacheHeight: 80,
+                              index: index,
+                            ),
                           ),
                         ),
-                      );
-                    },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: _NetworkImageWithRetry(
-                          url: mediaUrls[index],
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.cover,
-                          cacheWidth: 80,
-                          cacheHeight: 80,
-                          index: index,
+                      ),
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: InkWell(
+                          onTap: () => _confirmAndDeleteMedia(context, index),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 );
               },
@@ -2206,6 +2229,74 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors de l\'upload du fichier: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmAndDeleteMedia(BuildContext context, int index) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Supprimer le média'),
+          content: const Text('Voulez-vous vraiment supprimer ce média ? Cette action est définitive.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    if (!context.mounted) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      await _apiService.deleteMedia(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+        index: index,
+      );
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Média supprimé avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      if (widget.onRefreshRequested != null) {
+        widget.onRefreshRequested!();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la suppression du média: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );

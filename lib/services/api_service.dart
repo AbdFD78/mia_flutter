@@ -1130,4 +1130,38 @@ class ApiService {
     
     throw Exception('Erreur lors de l\'upload des médias');
   }
+
+  /// Suppression d'un média pour un champ mediauploader (par index)
+  Future<List<String>> deleteMedia({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+    required int index,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/media/$index'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode != 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['message'] ?? 'Erreur lors de la suppression du média');
+      }
+
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      if (jsonData['success'] == true && jsonData['remaining_media'] != null) {
+        return List<String>.from(jsonData['remaining_media']);
+      }
+
+      return [];
+    } catch (e) {
+      print('Erreur lors de la suppression du média: $e');
+      rethrow;
+    }
+  }
 }
