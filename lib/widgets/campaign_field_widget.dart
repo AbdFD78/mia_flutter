@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/campaign_detail.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math';
@@ -3849,6 +3850,7 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
   bool _sendingComment = false;
   List<Map<String, dynamic>> _comments = [];
   final TextEditingController _commentController = TextEditingController();
+  int? _currentUserId;
 
   @override
   void initState() {
@@ -3857,6 +3859,7 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
     _pageController = PageController(initialPage: widget.initialIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCommentsForIndex(_currentIndex);
+      _loadCurrentUser();
     });
   }
 
@@ -3865,6 +3868,19 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
     _pageController.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final auth = AuthService();
+      final user = await auth.getCurrentUser();
+      if (!mounted) return;
+      setState(() {
+        _currentUserId = user?.id;
+      });
+    } catch (_) {
+      // ignore erreurs silencieusement pour ne pas casser l'UI
+    }
   }
 
   String _extractRelativeMediaPath(String url) {
@@ -3969,6 +3985,55 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
     }
   }
 
+  Future<void> _confirmAndDeleteComment(int commentId) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Supprimer le commentaire'),
+          content: const Text('Voulez-vous vraiment supprimer ce commentaire ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _apiService.deleteMediaComment(commentId);
+
+      if (!mounted) return;
+      setState(() {
+        _comments = _comments.map((c) {
+          if (c['id'] == commentId || c['id'].toString() == commentId.toString()) {
+            final updated = Map<String, dynamic>.from(c);
+            updated['message'] = 'Commentaire supprimé';
+            updated['is_deleted'] = true;
+            return updated;
+          }
+          return c;
+        }).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la suppression du commentaire: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Widget _buildCommentsPanel() {
     return Container(
       color: Colors.grey[900],
@@ -4010,6 +4075,7 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
                           final name = user['name']?.toString() ?? 'Utilisateur';
                           final message = comment['message']?.toString() ?? '';
                           final isDeleted = (comment['is_deleted'] == true);
+                          final isOwn = _currentUserId != null && (user['id'] == _currentUserId);
                           final createdAt = comment['created_at']?.toString() ?? '';
                           final picture = user['picture']?.toString();
 
@@ -4039,22 +4105,53 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        name,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      if (createdAt.isNotEmpty)
-                                        Text(
-                                          createdAt,
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 11,
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                name,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              if (createdAt.isNotEmpty)
+                                                Text(
+                                                  createdAt,
+                                                  style: const TextStyle(
+                                                    color: Colors.white54,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                        ),
+                                          if (isOwn && !isDeleted)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 18,
+                                                color: Colors.redAccent,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              onPressed: () {
+                                                final id = comment['id'];
+                                                if (id is int) {
+                                                  _confirmAndDeleteComment(id);
+                                                } else if (id is String) {
+                                                  final parsed = int.tryParse(id);
+                                                  if (parsed != null) {
+                                                    _confirmAndDeleteComment(parsed);
+                                                  }
+                                                }
+                                              },
+                                            ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 4),
                                       Text(
                                         message,
