@@ -10,6 +10,7 @@ import 'dart:io';
 import '../config/app_config.dart';
 import '../screens/pdf_viewer_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 // Cache global pour stocker l'état de chargement des images
 class _ImageCache {
@@ -680,6 +681,12 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                       foregroundColor: Colors.white,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => _pickAndUploadDocument(context),
+                    icon: const Icon(Icons.attach_file, size: 18),
+                    label: const Text('Joindre un fichier (PDF)'),
+                  ),
                 ],
               ),
             ),
@@ -728,6 +735,16 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.blue.shade50,
                       foregroundColor: Colors.blue.shade700,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.attach_file, size: 20),
+                    tooltip: 'Joindre un fichier (PDF)',
+                    onPressed: () => _pickAndUploadDocument(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey.shade200,
+                      foregroundColor: Colors.grey.shade800,
                     ),
                   ),
                 ],
@@ -2009,15 +2026,83 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     if (!context.mounted) return;
 
     try {
-      List<XFile>? pickedFiles;
-      if (source == ImageSource.gallery) {
-        pickedFiles = await picker.pickMultiImage();
+      List<File> files = [];
+
+      if (source == ImageSource.camera) {
+        final pickedFile = await picker.pickImage(source: ImageSource.camera);
+        if (pickedFile != null) {
+          files = [File(pickedFile.path)];
+        }
       } else {
-        final pickedFile = await picker.pickImage(source: source);
-        if (pickedFile != null) pickedFiles = [pickedFile];
+        // Galerie : laisser choisir entre photos et vidéos
+        final String? mediaType = isIOS
+            ? await showDialog<String>(
+                context: context,
+                barrierDismissible: true,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Type de média'),
+                    content: const Text('Que souhaitez-vous ajouter ?'),
+                    actions: [
+                      TextButton.icon(
+                        onPressed: () => Navigator.pop(context, 'image'),
+                        icon: const Icon(Icons.photo_library, size: 20),
+                        label: const Text('Photos'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => Navigator.pop(context, 'video'),
+                        icon: const Icon(Icons.videocam, size: 20),
+                        label: const Text('Vidéos'),
+                      ),
+                    ],
+                  );
+                },
+              )
+            : await showModalBottomSheet<String>(
+                context: context,
+                builder: (BuildContext context) {
+                  return SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.photo_library),
+                          title: const Text('Photos'),
+                          onTap: () => Navigator.pop(context, 'image'),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.videocam),
+                          title: const Text('Vidéos'),
+                          onTap: () => Navigator.pop(context, 'video'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+
+        if (mediaType == null) return;
+
+        if (mediaType == 'image') {
+          final pickedFiles = await picker.pickMultiImage();
+          if (pickedFiles != null && pickedFiles.isNotEmpty) {
+            files = pickedFiles.map((xFile) => File(xFile.path)).toList();
+          }
+        } else if (mediaType == 'video') {
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.video,
+            allowMultiple: true,
+          );
+          if (result != null && result.files.isNotEmpty) {
+            files = result.files
+                .where((f) => f.path != null)
+                .map((f) => File(f.path!))
+                .toList();
+          }
+        }
       }
 
-      if (pickedFiles == null || pickedFiles.isEmpty) return;
+      if (files.isEmpty) return;
 
       // Afficher un indicateur de chargement
       if (!context.mounted) return;
@@ -2028,9 +2113,6 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
           child: CircularProgressIndicator(),
         ),
       );
-
-      // Convertir XFile en File
-      final List<File> files = pickedFiles.map((xFile) => File(xFile.path)).toList();
 
       // Uploader les fichiers
       await _apiService.uploadMedia(
@@ -2064,6 +2146,66 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors de l\'upload: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadDocument(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final files = result.files
+          .where((f) => f.path != null)
+          .map((f) => File(f.path!))
+          .toList();
+
+      if (files.isEmpty) return;
+
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      await _apiService.uploadMedia(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+        mediaFiles: files,
+      );
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fichiers PDF uploadés avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      if (widget.onRefreshRequested != null) {
+        widget.onRefreshRequested!();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'upload du fichier: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
