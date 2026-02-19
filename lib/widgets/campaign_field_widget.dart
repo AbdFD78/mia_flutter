@@ -11,6 +11,7 @@ import '../config/app_config.dart';
 import '../screens/pdf_viewer_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:crypto/crypto.dart';
 
 // Cache global pour stocker l'état de chargement des images
 class _ImageCache {
@@ -3828,18 +3829,268 @@ class _MediaCarouselScreen extends StatefulWidget {
 class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
   late PageController _pageController;
   late int _currentIndex;
+  final ApiService _apiService = ApiService();
+  bool _loadingComments = false;
+  bool _sendingComment = false;
+  List<Map<String, dynamic>> _comments = [];
+  final TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCommentsForIndex(_currentIndex);
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _commentController.dispose();
     super.dispose();
+  }
+
+  String _extractRelativeMediaPath(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final path = uri.path; // ex: /storage/uploads/media/xxx.jpg ou /api/media/uploads/media/xxx.jpg
+      if (path.contains('/storage/')) {
+        return path.split('/storage/').last;
+      }
+      if (path.contains('/media/')) {
+        return path.split('/media/').last;
+      }
+      return path.startsWith('/') ? path.substring(1) : path;
+    } catch (_) {
+      // Fallback simple
+      final idx = url.indexOf('/storage/');
+      if (idx != -1) {
+        return url.substring(idx + '/storage/'.length);
+      }
+      final idx2 = url.indexOf('/media/');
+      if (idx2 != -1) {
+        return url.substring(idx2 + '/media/'.length);
+      }
+      return url;
+    }
+  }
+
+  String _imageIdForIndex(int index) {
+    final url = widget.mediaUrls[index];
+    final relativePath = _extractRelativeMediaPath(url);
+    final bytes = utf8.encode(relativePath);
+    final digest = md5.convert(bytes);
+    return digest.toString();
+  }
+
+  Future<void> _loadCommentsForIndex(int index) async {
+    setState(() {
+      _loadingComments = true;
+    });
+    try {
+      final imageId = _imageIdForIndex(index);
+      final comments = await _apiService.getMediaComments(imageId);
+      if (!mounted) return;
+      setState(() {
+        _comments = comments;
+        _loadingComments = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingComments = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors du chargement des commentaires: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty || _sendingComment) return;
+
+    setState(() {
+      _sendingComment = true;
+    });
+
+    try {
+      final imageId = _imageIdForIndex(_currentIndex);
+      final comment = await _apiService.addMediaComment(
+        imageId: imageId,
+        message: text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = List<Map<String, dynamic>>.from(_comments)..add(comment);
+        _sendingComment = false;
+        _commentController.clear();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sendingComment = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de l\'ajout du commentaire: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _buildCommentsPanel() {
+    return Container(
+      color: Colors.grey[900],
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Commentaires',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _loadingComments
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : _comments.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Aucun commentaire',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _comments.length,
+                        itemBuilder: (context, index) {
+                          final comment = _comments[index];
+                          final user = comment['user'] as Map<String, dynamic>? ?? {};
+                          final name = user['name']?.toString() ?? 'Utilisateur';
+                          final message = comment['message']?.toString() ?? '';
+                          final createdAt = comment['created_at']?.toString() ?? '';
+                          final picture = user['picture']?.toString();
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.blueGrey,
+                                  backgroundImage: picture != null && picture.isNotEmpty
+                                      ? NetworkImage(AppConfig.getResourceUrl(picture))
+                                      : null,
+                                  child: (picture == null || picture.isEmpty)
+                                      ? Text(
+                                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      if (createdAt.isNotEmpty)
+                                        Text(
+                                          createdAt,
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        message,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  style: const TextStyle(color: Colors.white),
+                  maxLines: 2,
+                  minLines: 1,
+                  decoration: InputDecoration(
+                    hintText: 'Ajouter un commentaire...',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.grey[850],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _sendingComment ? null : _sendComment,
+                icon: _sendingComment
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.send, color: Colors.white),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -3851,24 +4102,53 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.mediaUrls.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          return InteractiveViewer(
-            child: Center(
-              child: _FullScreenImageWithRetry(
-                url: widget.mediaUrls[index],
-                index: index,
-                total: widget.mediaUrls.length,
-              ),
-            ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          Widget pageView = PageView.builder(
+            controller: _pageController,
+            itemCount: widget.mediaUrls.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+              _loadCommentsForIndex(index);
+            },
+            itemBuilder: (context, index) {
+              return InteractiveViewer(
+                child: Center(
+                  child: _FullScreenImageWithRetry(
+                    url: widget.mediaUrls[index],
+                    index: index,
+                    total: widget.mediaUrls.length,
+                  ),
+                ),
+              );
+            },
           );
+
+          if (constraints.maxWidth > 700) {
+            // Grand écran : image à gauche, commentaires à droite
+            return Row(
+              children: [
+                Expanded(child: pageView),
+                SizedBox(
+                  width: 320,
+                  child: _buildCommentsPanel(),
+                ),
+              ],
+            );
+          } else {
+            // Mobile : image en haut, commentaires en bas
+            return Column(
+              children: [
+                Expanded(child: pageView),
+                SizedBox(
+                  height: 260,
+                  child: _buildCommentsPanel(),
+                ),
+              ],
+            );
+          }
         },
       ),
     );

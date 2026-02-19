@@ -1131,6 +1131,78 @@ class ApiService {
     throw Exception('Erreur lors de l\'upload des médias');
   }
 
+  /// Récupérer les commentaires d'un média (imageId = md5 du chemin relatif)
+  Future<List<Map<String, dynamic>>> getMediaComments(String imageId) async {
+    try {
+      final headers = await _getHeaders();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/media-comments/$imageId'),
+        headers: headers,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode != 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['error'] ?? jsonData['message'] ?? 'Erreur lors du chargement des commentaires');
+      }
+
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      if (jsonData['success'] == true && jsonData['comments'] != null) {
+        return List<Map<String, dynamic>>.from(jsonData['comments'] as List);
+      }
+
+      return [];
+    } catch (e) {
+      print('Erreur lors du chargement des commentaires média: $e');
+      rethrow;
+    }
+  }
+
+  /// Ajouter un commentaire texte (sans pièce jointe) sur un média
+  Future<Map<String, dynamic>> addMediaComment({
+    required String imageId,
+    required String message,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('Non authentifié');
+      }
+
+      final uri = Uri.parse('$baseUrl/media-comments');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      request.fields['imageId'] = imageId;
+      if (message.isNotEmpty) {
+        request.fields['message'] = message;
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      _handleAuthError(response);
+
+      if (response.statusCode != 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(jsonData['error'] ?? jsonData['message'] ?? 'Erreur lors de l\'ajout du commentaire');
+      }
+
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      if (jsonData['success'] == true && jsonData['comment'] != null) {
+        return Map<String, dynamic>.from(jsonData['comment'] as Map);
+      }
+
+      throw Exception('Erreur lors de l\'ajout du commentaire');
+    } catch (e) {
+      print('Erreur lors de l\'ajout du commentaire média: $e');
+      rethrow;
+    }
+  }
+
   /// Suppression d'un média pour un champ mediauploader (par index)
   Future<List<String>> deleteMedia({
     required int campagneId,
