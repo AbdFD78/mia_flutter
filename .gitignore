@@ -47,7 +47,10 @@ app.*.map.json
 
 # Clé release Android (ne jamais versionner)
 android/key.properties
-android/app/mia-release-key.jksios/build
+android/app/mia-release-key.jks
+
+# iOS build folder
+ios/build/
 ios/build/
 
 # CocoaPods
