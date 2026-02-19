@@ -51,7 +51,6 @@ android/app/mia-release-key.jks
 
 # iOS build folder
 ios/build/
-ios/build/
 
 # CocoaPods
 ios/Podfile
