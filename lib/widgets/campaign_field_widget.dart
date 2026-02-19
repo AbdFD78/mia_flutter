@@ -783,6 +783,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                             MaterialPageRoute(
                               builder: (context) => _MediaCarouselScreen(
                                 mediaUrls: mediaUrls,
+                                mediaImageIds: mediaImageIds,
                                 initialIndex: index,
                               ),
                             ),
@@ -3827,10 +3828,12 @@ class _FullScreenImageWithRetryState extends State<_FullScreenImageWithRetry> {
 // Widget pour afficher le carrousel d'images en plein écran
 class _MediaCarouselScreen extends StatefulWidget {
   final List<String> mediaUrls;
+  final List<String>? mediaImageIds;
   final int initialIndex;
 
   const _MediaCarouselScreen({
     required this.mediaUrls,
+    this.mediaImageIds,
     required this.initialIndex,
   });
 
@@ -3890,23 +3893,12 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
   }
 
   String _imageIdForIndex(int index) {
-    // Si l'API fournit déjà les image_ids dans options['_media_meta'], on les récupère via field.options
-    try {
-      final parent = context.findAncestorStateOfType<_CampaignFieldWidgetState>();
-      if (parent != null) {
-        final field = parent.field;
-        if (field.options is Map && (field.options as Map).containsKey('_media_meta')) {
-          final meta = (field.options as Map)['_media_meta'];
-          if (meta is List && index < meta.length) {
-            final item = meta[index];
-            if (item is Map && item['image_id'] != null) {
-              return item['image_id'].toString();
-            }
-          }
-        }
-      }
-    } catch (_) {
-      // Fallback silencieux sur le calcul local
+    // Si l'API fournit déjà les image_ids, on les utilise directement
+    if (widget.mediaImageIds != null &&
+        index >= 0 &&
+        index < widget.mediaImageIds!.length &&
+        widget.mediaImageIds![index].isNotEmpty) {
+      return widget.mediaImageIds![index];
     }
 
     // Fallback: recalcule l'imageId à partir de l'URL (ancienne logique)

@@ -45,6 +45,13 @@ class AuthService {
 
         // Stockage en local
         await saveToken(token);
+        // DEBUG: afficher le token pour tests API externes
+        // ATTENTION: à retirer en production
+        // (visible dans la console après la connexion)
+        // Exemple de recherche dans les logs: "DEBUG_TOKEN_MOBILE"
+        // pour éviter de le perdre dans le bruit.
+        // ignore: avoid_print
+        print('DEBUG_TOKEN_MOBILE: $token');
         await saveUser(user);
 
         return {
