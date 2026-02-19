@@ -186,13 +186,18 @@ class ApiService {
   Future<Map<String, dynamic>> getCampaigns({
     String? search,
     int? clientId,
+    int page = 1,
+    int perPage = 8,
   }) async {
     try {
       final headers = await _getHeaders();
       
       // Construire l'URL avec paramètres de recherche et filtre
       var url = '$baseUrl/campagnes';
-      final queryParams = <String, String>{};
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'per_page': perPage.toString(),
+      };
       
       if (search != null && search.isNotEmpty) {
         queryParams['search'] = search;
