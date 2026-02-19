@@ -618,12 +618,24 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
   }
 
   Widget _buildMediaField() {
-    // Parser les URLs des médias
+    // Parser les données des médias
     List<String> mediaUrls = [];
+    List<String>? mediaImageIds;
     if (field.value != null) {
       if (field.value is List) {
-        // Directement un array d'URLs depuis l'API
-        mediaUrls = (field.value as List).map((e) => e.toString()).toList();
+        final rawList = field.value as List;
+        // Cas 1: API récente avec métadonnées dans options['_media_meta']
+        if (field.options is Map && (field.options as Map).containsKey('_media_meta')) {
+          final meta = (field.options as Map)['_media_meta'];
+          if (meta is List) {
+            mediaImageIds = meta
+                .map((e) => (e is Map && e['image_id'] != null) ? e['image_id'].toString() : '')
+                .cast<String>()
+                .toList();
+          }
+        }
+        // La valeur principale reste une liste d'URLs (compatibilité ascendante)
+        mediaUrls = rawList.map((e) => e.toString()).toList();
       } else if (field.value is String) {
         try {
           // Essayer de parser comme JSON
@@ -3878,6 +3890,26 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
   }
 
   String _imageIdForIndex(int index) {
+    // Si l'API fournit déjà les image_ids dans options['_media_meta'], on les récupère via field.options
+    try {
+      final parent = context.findAncestorStateOfType<_CampaignFieldWidgetState>();
+      if (parent != null) {
+        final field = parent.field;
+        if (field.options is Map && (field.options as Map).containsKey('_media_meta')) {
+          final meta = (field.options as Map)['_media_meta'];
+          if (meta is List && index < meta.length) {
+            final item = meta[index];
+            if (item is Map && item['image_id'] != null) {
+              return item['image_id'].toString();
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // Fallback silencieux sur le calcul local
+    }
+
+    // Fallback: recalcule l'imageId à partir de l'URL (ancienne logique)
     final url = widget.mediaUrls[index];
     final relativePath = _extractRelativeMediaPath(url);
     final bytes = utf8.encode(relativePath);

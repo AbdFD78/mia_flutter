@@ -1137,11 +1137,9 @@ class ApiService {
       final headers = await _getHeaders();
 
       final response = await http.get(
-        Uri.parse('$baseUrl/media-comments/$imageId'),
+        Uri.parse('$baseUrl/mobile/media-comments/$imageId'),
         headers: headers,
       );
-
-      _handleAuthError(response);
 
       if (response.statusCode != 200) {
         final Map<String, dynamic> jsonData = json.decode(response.body);
@@ -1171,7 +1169,7 @@ class ApiService {
         throw Exception('Non authentifié');
       }
 
-      final uri = Uri.parse('$baseUrl/media-comments');
+      final uri = Uri.parse('$baseUrl/mobile/media-comments');
       final request = http.MultipartRequest('POST', uri);
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
@@ -1183,8 +1181,6 @@ class ApiService {
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
-      _handleAuthError(response);
 
       if (response.statusCode != 200) {
         final Map<String, dynamic> jsonData = json.decode(response.body);
