@@ -247,7 +247,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                                 mainAxisSpacing: 12,
                                 crossAxisSpacing: 12,
                                 // ratio largeur/hauteur -> plus petit => plus de hauteur disponible
-                                childAspectRatio: 0.7,
+                                childAspectRatio: 0.6,
                               ),
                               itemCount: _filteredCampaigns.length,
                               itemBuilder: (context, index) {
@@ -539,13 +539,48 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    campaign.nom,
-                    style: AppTheme.heading3.copyWith(fontSize: 14),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          // Hauteur fixe pour 2 lignes de texte environ
+                          height: 36,
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              campaign.nom,
+                              style: AppTheme.heading3.copyWith(fontSize: 14),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (campaign.canEdit)
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          color: Colors.green[700],
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Modifier',
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    CampaignEditScreen(campaign: campaign),
+                              ),
+                            );
+
+                            if (result == true) {
+                              _loadCampaigns();
+                            }
+                          },
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     campaign.clientName,
                     style: AppTheme.bodySmall,

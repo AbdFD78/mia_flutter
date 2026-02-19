@@ -221,12 +221,18 @@ class ApiService {
         
         if (decodedData is Map<String, dynamic>) {
           // Nouveau format avec campaigns et clients
-          final List<dynamic> campaignsJson = decodedData['campaigns'] ?? decodedData['data'] ?? [];
-          final campaigns = campaignsJson.map((json) => Campaign.fromJson(json)).toList();
-          
+          final List<dynamic> campaignsJson =
+              decodedData['campaigns'] ?? decodedData['data'] ?? [];
+          final campaigns =
+              campaignsJson.map((json) => Campaign.fromJson(json)).toList();
+
           return {
             'campaigns': campaigns,
             'clients': decodedData['clients'] ?? [],
+            'page': decodedData['page'] ?? 1,
+            'per_page': decodedData['per_page'] ?? campaigns.length,
+            'total': decodedData['total'] ?? campaigns.length,
+            'has_more': decodedData['has_more'] ?? false,
           };
         } else if (decodedData is List) {
           // Ancien format - liste directe
