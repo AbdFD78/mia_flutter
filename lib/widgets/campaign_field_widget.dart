@@ -1141,6 +1141,24 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
+
+              // Bouton "Envoyer par mail" : seulement si devis ET facture existent
+              if (latestDevis != null && latestFacture != null)
+                FilledButton.icon(
+                  onPressed: () {
+                    _openSendEmailDialog(context);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.email_outlined, size: 18),
+                  label: const Text(
+                    'Envoyer par mail',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1269,6 +1287,199 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
         ],
       ),
+    );
+  }
+
+  Future<void> _openSendEmailDialog(BuildContext context) async {
+    // Email client prérempli : on le récupère du CampaignDetail global via widget
+    // Ici on ne l'a pas directement, donc on laisse l'utilisateur saisir si besoin.
+    final TextEditingController recipientController = TextEditingController();
+    final TextEditingController subjectController = TextEditingController();
+    final TextEditingController messageController = TextEditingController();
+    String documentType = 'devis';
+    final List<File> attachments = [];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('Envoyer le document par mail'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: recipientController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Destinataire',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: subjectController,
+                      decoration: const InputDecoration(
+                        labelText: 'Intitulé',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: messageController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Contenu',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Document à envoyer',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            value: 'devis',
+                            groupValue: documentType,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => documentType = val);
+                              }
+                            },
+                            title: const Text('Devis'),
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<String>(
+                            value: 'facture',
+                            groupValue: documentType,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => documentType = val);
+                              }
+                            },
+                            title: const Text('Facture'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Pièces jointes (optionnel)',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          allowMultiple: true,
+                        );
+                        if (result != null) {
+                          setState(() {
+                            attachments.addAll(
+                              result.paths
+                                  .whereType<String>()
+                                  .map((p) => File(p)),
+                            );
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.attach_file),
+                      label: const Text('Ajouter des fichiers'),
+                    ),
+                    const SizedBox(height: 8),
+                    if (attachments.isNotEmpty)
+                      SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          itemCount: attachments.length,
+                          itemBuilder: (ctx, index) {
+                            final file = attachments[index];
+                            return ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.insert_drive_file),
+                              title: Text(
+                                file.path.split('/').last,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  setState(() {
+                                    attachments.removeAt(index);
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final recipient = recipientController.text.trim();
+                    final subject = subjectController.text.trim();
+                    final body = messageController.text.trim();
+
+                    if (recipient.isEmpty || subject.isEmpty || body.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Veuillez renseigner destinataire, intitulé et contenu.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      Navigator.of(ctx).pop();
+                      await _apiService.sendNewDocEmail(
+                        campagneId: widget.campaignId,
+                        tabTag: widget.tabTag,
+                        formTag: field.tag,
+                        recipient: recipient,
+                        subject: subject,
+                        message: body,
+                        documentType: documentType,
+                        attachments: attachments,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Email envoyé avec succès.'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Erreur lors de l\'envoi de l\'email: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Envoyer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

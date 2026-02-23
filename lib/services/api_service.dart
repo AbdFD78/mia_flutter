@@ -1050,6 +1050,57 @@ class ApiService {
     }
   }
 
+  /// Envoi par email du devis ou de la facture d'un champ newdocgenerator,
+  /// avec destinataire modifiable et pièces jointes optionnelles.
+  Future<void> sendNewDocEmail({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+    required String recipient,
+    required String subject,
+    required String message,
+    required String documentType, // 'devis' ou 'facture'
+    List<File>? attachments,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Non authentifié');
+    }
+
+    final uri = Uri.parse(
+        '$baseUrl/campagnes/$campagneId/docs/$tabTag/$formTag/send-email');
+
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'application/json';
+
+    request.fields['recipient'] = recipient;
+    request.fields['subject'] = subject;
+    request.fields['message'] = message;
+    request.fields['document_type'] = documentType;
+
+    if (attachments != null && attachments.isNotEmpty) {
+      for (final file in attachments) {
+        final multipartFile = await http.MultipartFile.fromPath(
+          'attachments[]',
+          file.path,
+          filename: file.path.split('/').last,
+        );
+        request.files.add(multipartFile);
+      }
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    _handleAuthError(response);
+
+    final Map<String, dynamic> jsonData = json.decode(response.body);
+    if (response.statusCode != 200 || jsonData['success'] != true) {
+      throw Exception(jsonData['message'] ?? 'Erreur lors de l\'envoi de l\'email');
+    }
+  }
+
   Future<void> updateNewDocProductLines({
     required int campagneId,
     required String tabTag,
