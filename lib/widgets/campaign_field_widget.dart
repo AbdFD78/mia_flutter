@@ -798,20 +798,27 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               ),
               itemBuilder: (context, index) {
                 final url = mediaUrls[index];
+                final lowerUrl = url.toLowerCase();
+                final isPdf = lowerUrl.endsWith('.pdf');
+
                 return Stack(
                   children: [
                     GestureDetector(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => _MediaCarouselScreen(
-                              mediaUrls: mediaUrls,
-                              mediaImageIds: mediaImageIds,
-                              initialIndex: index,
+                        if (isPdf) {
+                          _openPdf(context, url, 'Document PDF');
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => _MediaCarouselScreen(
+                                mediaUrls: mediaUrls,
+                                mediaImageIds: mediaImageIds,
+                                initialIndex: index,
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        }
                       },
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
@@ -820,15 +827,39 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: _NetworkImageWithRetry(
-                            url: url,
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.cover,
-                            cacheWidth: 120,
-                            cacheHeight: 120,
-                            index: index,
-                          ),
+                          child: isPdf
+                              ? Container(
+                                  alignment: Alignment.center,
+                                  padding: const EdgeInsets.all(8),
+                                  color: Colors.red.shade50,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.picture_as_pdf,
+                                        color: Colors.red.shade700,
+                                        size: 32,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'PDF',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : _NetworkImageWithRetry(
+                                  url: url,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 120,
+                                  cacheHeight: 120,
+                                  index: index,
+                                ),
                         ),
                       ),
                     ),
