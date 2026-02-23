@@ -90,12 +90,14 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
 
   void _goToPreviousTab() {
     if (_tabController.index > 0) {
+      FocusScope.of(context).unfocus();
       _tabController.animateTo(_tabController.index - 1);
     }
   }
 
   void _goToNextTab() {
     if (_tabController.index < _tabController.length - 1) {
+      FocusScope.of(context).unfocus();
       _tabController.animateTo(_tabController.index + 1);
     }
   }
@@ -124,6 +126,8 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: Colors.blue,
                 onTap: (index) {
+                  // Forcer la perte de focus des champs avant de changer d'onglet
+                  FocusScope.of(context).unfocus();
                   // Lorsque l'utilisateur tape sur un onglet, synchroniser la PageView
                   _pageController.animateToPage(
                     index,
@@ -186,6 +190,10 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
                               if (_tabController.index != index) {
                                 _tabController.animateTo(index);
                               }
+
+                              // Recharger les détails de la campagne lorsqu'on change d'onglet
+                              // pour récupérer les dernières valeurs saisies.
+                              _loadCampaignDetail();
                             },
                             itemBuilder: (context, index) {
                               final tab = _campaignDetail!.tabs[index];
@@ -262,22 +270,29 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: visibleFields.length,
-      itemBuilder: (context, index) {
-        final field = visibleFields[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: CampaignFieldWidget(
-            field: field,
-            campaignId: _campaignDetail!.id,
-            tabTag: tab.tag,
-            clientEmail: _campaignDetail!.clientEmail,
-            onRefreshRequested: _loadCampaignDetail,
-          ),
-        );
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        FocusScope.of(context).unfocus();
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: visibleFields.length,
+        itemBuilder: (context, index) {
+          final field = visibleFields[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: CampaignFieldWidget(
+              field: field,
+              campaignId: _campaignDetail!.id,
+              tabTag: tab.tag,
+              clientEmail: _campaignDetail!.clientEmail,
+              onRefreshRequested: _loadCampaignDetail,
+              canEdit: _campaignDetail!.canEdit,
+            ),
+          );
+        },
+      ),
     );
   }
 }

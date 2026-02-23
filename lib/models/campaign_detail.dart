@@ -9,6 +9,7 @@ class CampaignDetail {
   final String? clientEmail;
   final int? configsId;
   final String configName;
+   final bool canEdit;
   final List<CampaignTab> tabs;
 
   CampaignDetail({
@@ -20,6 +21,7 @@ class CampaignDetail {
     this.clientEmail,
     this.configsId,
     required this.configName,
+    this.canEdit = false,
     required this.tabs,
   });
 
@@ -33,6 +35,7 @@ class CampaignDetail {
       clientEmail: json['client_email'],
       configsId: json['configs_id'],
       configName: json['config_name'] ?? 'Configuration non définie',
+      canEdit: json['can_edit'] ?? false,
       tabs: (json['tabs'] as List<dynamic>?)
               ?.map((tab) => CampaignTab.fromJson(tab))
               .toList() ??

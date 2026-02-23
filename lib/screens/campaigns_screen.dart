@@ -37,6 +37,9 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
   bool _isGridView = true;
   final ScrollController _scrollController = ScrollController();
 
+  String _sortField = 'nom';
+  String _sortDirection = 'asc';
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +69,8 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
         search: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
         page: _currentPage,
         perPage: 8,
+        sortField: _sortField,
+        sortDirection: _sortDirection,
       );
 
       setState(() {
@@ -109,6 +114,65 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
               _isGridView ? Icons.view_list_outlined : Icons.grid_view_outlined,
             ),
             tooltip: _isGridView ? 'Afficher en liste' : 'Afficher en grille',
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                switch (value) {
+                  case 'nom_asc':
+                    _sortField = 'nom';
+                    _sortDirection = 'asc';
+                    break;
+                  case 'nom_desc':
+                    _sortField = 'nom';
+                    _sortDirection = 'desc';
+                    break;
+                  case 'created_desc':
+                    _sortField = 'created_at';
+                    _sortDirection = 'desc';
+                    break;
+                  case 'created_asc':
+                    _sortField = 'created_at';
+                    _sortDirection = 'asc';
+                    break;
+                  case 'activity_desc':
+                    _sortField = 'last_activity_at';
+                    _sortDirection = 'desc';
+                    break;
+                  case 'activity_asc':
+                    _sortField = 'last_activity_at';
+                    _sortDirection = 'asc';
+                    break;
+                }
+              });
+              _loadCampaigns();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'nom_asc',
+                child: Text('Nom A → Z'),
+              ),
+              PopupMenuItem(
+                value: 'nom_desc',
+                child: Text('Nom Z → A'),
+              ),
+              PopupMenuItem(
+                value: 'created_desc',
+                child: Text('Création (récents en premier)'),
+              ),
+              PopupMenuItem(
+                value: 'created_asc',
+                child: Text('Création (anciens en premier)'),
+              ),
+              PopupMenuItem(
+                value: 'activity_desc',
+                child: Text('Dernière activité (récents en premier)'),
+              ),
+              PopupMenuItem(
+                value: 'activity_asc',
+                child: Text('Dernière activité (anciens en premier)'),
+              ),
+            ],
           ),
         ],
         bottom: PreferredSize(
@@ -314,6 +378,8 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
         search: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
         page: nextPage,
         perPage: 8,
+        sortField: _sortField,
+        sortDirection: _sortDirection,
       );
 
       final newCampaigns = result['campaigns'] as List<Campaign>;

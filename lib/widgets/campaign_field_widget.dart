@@ -93,6 +93,7 @@ class CampaignFieldWidget extends StatefulWidget {
   final String tabTag;
   final VoidCallback? onRefreshRequested;
   final String? clientEmail;
+  final bool canEdit;
 
   const CampaignFieldWidget({
     super.key,
@@ -101,6 +102,7 @@ class CampaignFieldWidget extends StatefulWidget {
     required this.tabTag,
     this.onRefreshRequested,
     this.clientEmail,
+    this.canEdit = false,
   });
 
   @override
@@ -116,6 +118,36 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
   // État d'ouverture/fermeture des médias (collapse) pour ce champ
   bool _mediaExpanded = false;
+
+  TextEditingController? _simpleFieldController;
+  FocusNode? _simpleFieldFocusNode;
+
+  bool get _isSimpleEditableType {
+    final t = field.type.toLowerCase();
+    return t == 'text' ||
+        t == 'texte' ||
+        t == 'number' ||
+        t == 'textarea' ||
+        t == 'text-area';
+  }
+
+  void _ensureSimpleFieldController() {
+    if (!widget.canEdit || !_isSimpleEditableType) return;
+    if (_simpleFieldController == null) {
+      _simpleFieldController =
+          TextEditingController(text: field.value?.toString() ?? '');
+    }
+    if (_simpleFieldFocusNode == null) {
+      _simpleFieldFocusNode = FocusNode();
+      _simpleFieldFocusNode!.addListener(() {
+        if (!_simpleFieldFocusNode!.hasFocus &&
+            widget.canEdit &&
+            _isSimpleEditableType) {
+          _saveSimpleValue(_simpleFieldController?.text ?? '');
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -207,47 +239,105 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     );
   }
 
+  Widget _buildLabelChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      margin: const EdgeInsets.only(left: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.blue.shade800,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextField() {
-    return _buildCardField(
-      child: Column(
+    final bool editable = widget.canEdit;
+
+    if (editable) {
+      _ensureSimpleFieldController();
+
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+          _buildLabelChip(field.label),
+          _buildCardField(
+            child: TextField(
+              controller: _simpleFieldController,
+              focusNode: _simpleFieldFocusNode,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+              ),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.black87,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Text(
             field.value?.toString() ?? '/',
             style: TextStyle(
               fontSize: 15,
               color: field.value != null ? Colors.black87 : Colors.grey,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildNumberField() {
-    return _buildCardField(
-      child: Column(
+    final bool editable = widget.canEdit;
+
+    if (editable) {
+      _ensureSimpleFieldController();
+
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+          _buildLabelChip(field.label),
+          _buildCardField(
+            child: TextField(
+              controller: _simpleFieldController,
+              focusNode: _simpleFieldFocusNode,
+              keyboardType: const TextInputType.numberWithOptions(
+                  signed: false, decimal: true),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+              ),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Text(
             field.value?.toString() ?? '0',
             style: const TextStyle(
               fontSize: 18,
@@ -255,34 +345,53 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               color: Colors.blue,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildTextAreaField() {
-    return _buildCardField(
-      child: Column(
+    final bool editable = widget.canEdit;
+
+    if (editable) {
+      _ensureSimpleFieldController();
+
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+          _buildLabelChip(field.label),
+          _buildCardField(
+            child: TextField(
+              controller: _simpleFieldController,
+              focusNode: _simpleFieldFocusNode,
+              maxLines: null,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+              ),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.black87,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Text(
             field.value?.toString() ?? '/',
             style: TextStyle(
               fontSize: 15,
               color: field.value != null ? Colors.black87 : Colors.grey,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -328,57 +437,72 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     }
     
     // Normaliser les valeurs sélectionnées
-    selectedValues = selectedValues.map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
-    
-    return _buildCardField(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...availableOptions.entries.map((entry) {
+    selectedValues =
+        selectedValues.map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
+    final bool editable = widget.canEdit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: availableOptions.entries.map((entry) {
             // Comparaison flexible : par clé exacte, clé normalisée, ou valeur
             final normalizedKey = entry.key.trim();
             final normalizedValue = entry.value.trim();
             final isChecked = selectedValues.any((selected) {
               final normalizedSelected = selected.trim();
-              return normalizedSelected == normalizedKey || 
-                     normalizedSelected == normalizedValue ||
-                     normalizedSelected == entry.key ||
-                     normalizedSelected == entry.value;
+              return normalizedSelected == normalizedKey ||
+                  normalizedSelected == normalizedValue ||
+                  normalizedSelected == entry.key ||
+                  normalizedSelected == entry.value;
             });
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    isChecked ? Icons.check_box : Icons.check_box_outline_blank,
-                    color: isChecked ? Colors.blue : Colors.grey,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      entry.value,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: isChecked ? Colors.black87 : Colors.grey[600],
+              child: InkWell(
+                onTap: !editable
+                    ? null
+                    : () async {
+                        final key = entry.key.trim();
+                        List<String> newSelected = List.from(selectedValues);
+                        if (isChecked) {
+                          newSelected.removeWhere((v) => v.trim() == key);
+                        } else {
+                          newSelected.add(key);
+                        }
+                        final String stored =
+                            jsonEncode(newSelected.where((v) => v.isNotEmpty));
+                        await _saveSimpleValue(stored);
+                      },
+                child: Row(
+                  children: [
+                    Icon(
+                      isChecked
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      color: isChecked ? Colors.blue : Colors.grey,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        entry.value,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: isChecked ? Colors.black87 : Colors.grey[600],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }).toList(),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -423,21 +547,16 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     
     // Normaliser la clé pour la comparaison
     final String? normalizedSelectedValue = selectedValue?.trim();
-    
-    return _buildCardField(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...availableOptions.entries.map((entry) {
+    final bool editable = widget.canEdit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: availableOptions.entries.map((entry) {
             // Comparaison flexible : par clé exacte, clé normalisée, ou valeur
             final normalizedKey = entry.key.trim();
             final normalizedValue = entry.value.trim();
@@ -449,29 +568,40 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             );
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    color: isSelected ? Colors.blue : Colors.grey,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      entry.value,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: isSelected ? Colors.black87 : Colors.grey[600],
+              child: InkWell(
+                onTap: !editable
+                    ? null
+                    : () async {
+                        final key = entry.key.trim();
+                        await _saveSimpleValue(key);
+                      },
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: isSelected ? Colors.blue : Colors.grey,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        entry.value,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: isSelected ? Colors.black87 : Colors.grey[600],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }).toList(),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -516,6 +646,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     
     // Normaliser la clé pour la comparaison (enlever les espaces)
     final String? normalizedSelectedValue = selectedValue?.trim();
+    final bool editable = widget.canEdit;
     
     // Chercher la valeur dans les options (comparaison flexible)
     String? matchedKey;
@@ -535,91 +666,107 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
       }
     }
     
-    final String displayValue = matchedKey != null && availableOptions.containsKey(matchedKey)
+    final String displayValue = matchedKey != null &&
+            availableOptions.containsKey(matchedKey)
         ? availableOptions[matchedKey]!
         : 'Aucune sélection';
     
-    return _buildCardField(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.blue.shade200),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.arrow_drop_down, color: Colors.blue),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    displayValue,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: matchedKey != null ? Colors.black87 : Colors.grey,
-                      fontWeight: matchedKey != null ? FontWeight.w500 : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Afficher toutes les options disponibles en dessous
-          if (availableOptions.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Options disponibles :',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-            const SizedBox(height: 6),
-            ...availableOptions.entries.map((entry) {
-              final isSelected = matchedKey != null && (matchedKey == entry.key || normalizedSelectedValue == entry.key);
-              return Padding(
-                padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      isSelected ? Icons.check_circle : Icons.circle_outlined,
-                      size: 16,
-                      color: isSelected ? Colors.blue : Colors.grey[400],
-                    ),
+                    const Icon(Icons.arrow_drop_down, color: Colors.blue),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        entry.value,
+                        displayValue,
                         style: TextStyle(
-                          fontSize: 13,
-                          color: isSelected ? Colors.blue[700] : Colors.grey[600],
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: 15,
+                          color: matchedKey != null
+                              ? Colors.black87
+                              : Colors.grey,
+                          fontWeight: matchedKey != null
+                              ? FontWeight.w500
+                              : FontWeight.normal,
                         ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-              );
-            }).toList(),
-          ],
-        ],
-      ),
+              ),
+              if (availableOptions.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Options disponibles :',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...availableOptions.entries.map((entry) {
+                  final isSelected = matchedKey != null && (matchedKey == entry.key || normalizedSelectedValue == entry.key);
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 4),
+                    child: InkWell(
+                      onTap: !editable
+                          ? null
+                          : () async {
+                              final key = entry.key.trim();
+                              await _saveSimpleValue(key);
+                            },
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            isSelected
+                                ? Icons.check_circle
+                                : Icons.circle_outlined,
+                            size: 16,
+                            color:
+                                isSelected ? Colors.blue : Colors.grey[400],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              entry.value,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isSelected
+                                    ? Colors.blue[700]
+                                    : Colors.grey[600],
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -661,77 +808,70 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     }
 
     if (mediaUrls.isEmpty) {
-      return _buildCardField(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              field.label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildLabelChip(field.label),
+          _buildCardField(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.image_outlined,
+                          size: 48, color: Colors.grey),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Aucun média',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => _pickAndUploadMedia(context),
+                        icon: const Icon(Icons.add_photo_alternate, size: 18),
+                        label: const Text('Ajouter des médias'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => _pickAndUploadDocument(context),
+                        icon: const Icon(Icons.attach_file, size: 18),
+                        label: const Text('Joindre un fichier (PDF)'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.image_outlined, size: 48, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Aucun média',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => _pickAndUploadMedia(context),
-                    icon: const Icon(Icons.add_photo_alternate, size: 18),
-                    label: const Text('Ajouter des médias'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => _pickAndUploadDocument(context),
-                    icon: const Icon(Icons.attach_file, size: 18),
-                    label: const Text('Joindre un fichier (PDF)'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
-    return _buildCardField(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  field.label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              const SizedBox.shrink(),
               Row(
                 children: [
                   IconButton(
@@ -887,65 +1027,67 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               },
             ),
           ],
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDocumentField() {
-    return _buildCardField(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.description, color: Colors.blue.shade700, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        field.value != null ? 'Document disponible' : 'Aucun document',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (field.value != null)
-                        const Text(
-                          'Tap pour télécharger',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                    ],
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
                 ),
-                if (field.value != null)
-                  Icon(Icons.download, color: Colors.blue.shade700),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    Icon(Icons.description,
+                        color: Colors.blue.shade700, size: 32),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            field.value != null
+                                ? 'Document disponible'
+                                : 'Aucun document',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (field.value != null)
+                            const Text(
+                              'Tap pour télécharger',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (field.value != null)
+                      Icon(Icons.download, color: Colors.blue.shade700),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1083,20 +1225,14 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     
     final productLines = _newDocLinesCache[cacheKey] ?? [];
 
-    return _buildCardField(
-      child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabelChip(field.label),
+        _buildCardField(
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tag du champ
-          Text(
-            field.label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
           // Boutons de génération (utiliser Wrap pour éviter les overflows)
           Wrap(
             spacing: 8,
@@ -1336,9 +1472,10 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
             ),
             const SizedBox(height: 12),
           ],
-
         ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2145,16 +2282,19 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
   }
 
   Widget _buildCardField({required Widget child}) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200, width: 1),
-      ),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: child,
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        elevation: 0.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: child,
+        ),
       ),
     );
   }
@@ -2188,6 +2328,13 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
       // ignore: avoid_print
       print('Erreur génération devis: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _simpleFieldController?.dispose();
+    _simpleFieldFocusNode?.dispose();
+    super.dispose();
   }
 
   Future<void> _showDevisBrouillonMenu(
@@ -2482,6 +2629,24 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _saveSimpleValue(String value) async {
+    try {
+      await _apiService.updateCampaignFieldValue(
+        campagneId: widget.campaignId,
+        tabTag: widget.tabTag,
+        formTag: field.tag,
+        value: value,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la sauvegarde du champ: $e'),
+        ),
+      );
     }
   }
 

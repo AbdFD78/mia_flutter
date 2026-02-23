@@ -188,6 +188,8 @@ class ApiService {
     int? clientId,
     int page = 1,
     int perPage = 8,
+    String sortField = 'nom',
+    String sortDirection = 'asc',
   }) async {
     try {
       final headers = await _getHeaders();
@@ -197,6 +199,8 @@ class ApiService {
       final queryParams = <String, String>{
         'page': page.toString(),
         'per_page': perPage.toString(),
+        'sort_field': sortField,
+        'sort_direction': sortDirection,
       };
       
       if (search != null && search.isNotEmpty) {
@@ -298,6 +302,39 @@ class ApiService {
       }
     } catch (e) {
       print('Erreur lors du chargement des détails de la campagne: $e');
+      rethrow;
+    }
+  }
+
+  /// Mettre à jour la valeur d'un champ simple de campagne
+  Future<void> updateCampaignFieldValue({
+    required int campagneId,
+    required String tabTag,
+    required String formTag,
+    required dynamic value,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse(
+          '$baseUrl/campagnes/$campagneId/tabs/$tabTag/$formTag/value');
+
+      final body = jsonEncode({'value': value});
+
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: body,
+      );
+
+      _handleAuthError(response);
+
+      if (response.statusCode != 200) {
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        throw Exception(
+            jsonData['message'] ?? 'Erreur lors de la mise à jour du champ');
+      }
+    } catch (e) {
+      print('Erreur updateCampaignFieldValue: $e');
       rethrow;
     }
   }
