@@ -92,6 +92,7 @@ class CampaignFieldWidget extends StatefulWidget {
   final int campaignId;
   final String tabTag;
   final VoidCallback? onRefreshRequested;
+  final String? clientEmail;
 
   const CampaignFieldWidget({
     super.key,
@@ -99,6 +100,7 @@ class CampaignFieldWidget extends StatefulWidget {
     required this.campaignId,
     required this.tabTag,
     this.onRefreshRequested,
+    this.clientEmail,
   });
 
   @override
@@ -111,6 +113,9 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
 
   // Cache des lignes produits éditables pour les champs newdocgenerator
   static final Map<String, List<Map<String, dynamic>>> _newDocLinesCache = {};
+
+  // État d'ouverture/fermeture des médias (collapse) pour ce champ
+  bool _mediaExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -716,16 +721,30 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                field.label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+              Expanded(
+                child: Text(
+                  field.label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Row(
                 children: [
+                  IconButton(
+                    icon: Icon(
+                      _mediaExpanded ? Icons.expand_less : Icons.expand_more,
+                    ),
+                    tooltip: _mediaExpanded ? 'Masquer les médias' : 'Afficher les médias',
+                    onPressed: () {
+                      setState(() {
+                        _mediaExpanded = !_mediaExpanded;
+                      });
+                    },
+                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -765,77 +784,78 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 100,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
+          if (_mediaExpanded) ...[
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: mediaUrls.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
               itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Stack(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          // Ouvrir le carrousel en plein écran
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => _MediaCarouselScreen(
-                                mediaUrls: mediaUrls,
-                                mediaImageIds: mediaImageIds,
-                                initialIndex: index,
-                              ),
+                final url = mediaUrls[index];
+                return Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => _MediaCarouselScreen(
+                              mediaUrls: mediaUrls,
+                              mediaImageIds: mediaImageIds,
+                              initialIndex: index,
                             ),
-                          );
-                        },
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: _NetworkImageWithRetry(
-                              url: mediaUrls[index],
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              cacheWidth: 80,
-                              cacheHeight: 80,
-                              index: index,
-                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: _NetworkImageWithRetry(
+                            url: url,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            cacheWidth: 120,
+                            cacheHeight: 120,
+                            index: index,
                           ),
                         ),
                       ),
-                      Positioned(
-                        top: 2,
-                        right: 2,
-                        child: InkWell(
-                          onTap: () => _confirmAndDeleteMedia(context, index),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: const Icon(
-                              Icons.close,
-                              size: 16,
-                              color: Colors.white,
-                            ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: InkWell(
+                        onTap: () => _confirmAndDeleteMedia(context, index),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1141,65 +1161,66 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
-
-              // Bouton "Envoyer par mail" : seulement si devis ET facture existent
-              if (latestDevis != null && latestFacture != null)
-                FilledButton.icon(
-                  onPressed: () {
-                    _openSendEmailDialog(context);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                  icon: const Icon(Icons.email_outlined, size: 18),
-                  label: const Text(
-                    'Envoyer par mail',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Si facture confirmée : deux boutons simples "Voir le devis" et "Voir la facture"
+          // Si facture confirmée : bouton "Envoyer par mail" centré + boutons "Voir le devis / Voir la facture"
           if (latestDevis != null && latestFacture != null) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _openPdf(
-                      context,
-                      latestDevis['pdf_url'] as String,
-                      'Devis ${latestDevis['num_devis'] ?? ''}',
-                    ),
-                    icon: const Icon(Icons.description_outlined),
-                    label: const Text('Voir le devis'),
+                    onPressed: () => _openSendEmailDialog(context),
+                    icon: const Icon(Icons.email_outlined),
+                    label: const Text('Envoyer par mail'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: Colors.indigo,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _openPdf(
-                      context,
-                      latestFacture['pdf_url'] as String,
-                      'Facture ${latestFacture['num_facture'] ?? ''}',
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openPdf(
+                          context,
+                          latestDevis['pdf_url'] as String,
+                          'Devis ${latestDevis['num_devis'] ?? ''}',
+                        ),
+                        icon: const Icon(Icons.description_outlined),
+                        label: const Text('Voir le devis'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
                     ),
-                    icon: const Icon(Icons.receipt_long),
-                    label: const Text('Voir la facture'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openPdf(
+                          context,
+                          latestFacture['pdf_url'] as String,
+                          'Facture ${latestFacture['num_facture'] ?? ''}',
+                        ),
+                        icon: const Icon(Icons.receipt_long),
+                        label: const Text('Voir la facture'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1291,9 +1312,9 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
   }
 
   Future<void> _openSendEmailDialog(BuildContext context) async {
-    // Email client prérempli : on le récupère du CampaignDetail global via widget
-    // Ici on ne l'a pas directement, donc on laisse l'utilisateur saisir si besoin.
-    final TextEditingController recipientController = TextEditingController();
+    final TextEditingController recipientController = TextEditingController(
+      text: widget.clientEmail ?? '',
+    );
     final TextEditingController subjectController = TextEditingController();
     final TextEditingController messageController = TextEditingController();
     String documentType = 'devis';
@@ -1351,7 +1372,14 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                                 setState(() => documentType = val);
                               }
                             },
-                            title: const Text('Devis'),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Devis',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
                           ),
                         ),
                         Expanded(
@@ -1363,7 +1391,14 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                                 setState(() => documentType = val);
                               }
                             },
-                            title: const Text('Facture'),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Facture',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
                           ),
                         ),
                       ],

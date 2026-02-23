@@ -273,6 +273,7 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
             field: field,
             campaignId: _campaignDetail!.id,
             tabTag: tab.tag,
+            clientEmail: _campaignDetail!.clientEmail,
             onRefreshRequested: _loadCampaignDetail,
           ),
         );

@@ -6,6 +6,7 @@ class CampaignDetail {
   final String? picture;
   final int clientId;
   final String clientName;
+  final String? clientEmail;
   final int? configsId;
   final String configName;
   final List<CampaignTab> tabs;
@@ -16,6 +17,7 @@ class CampaignDetail {
     this.picture,
     required this.clientId,
     required this.clientName,
+    this.clientEmail,
     this.configsId,
     required this.configName,
     required this.tabs,
@@ -28,6 +30,7 @@ class CampaignDetail {
       picture: json['picture'],
       clientId: json['client_id'] ?? 0,
       clientName: json['client_name'] ?? 'Client non défini',
+      clientEmail: json['client_email'],
       configsId: json['configs_id'],
       configName: json['config_name'] ?? 'Configuration non définie',
       tabs: (json['tabs'] as List<dynamic>?)
