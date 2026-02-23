@@ -1054,7 +1054,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
               // Le bouton "Générer un devis" est masqué dès qu'un devis est confirmé (généré)
               // On le masque si latestDevis existe (devis confirmé dans l'historique)
               if (latestDevis == null)
-                IconButton.filled(
+                FilledButton.icon(
                   onPressed: () async {
                     if (!hasDevisPreview) {
                       final confirmed = await _confirmGenerateDevis(context);
@@ -1069,18 +1069,24 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.description_outlined),
-                  tooltip:
-                      'Générer un devis (vous ne pourrez plus le modifier ni en générer un autre)',
-                  style: IconButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  icon: Icon(
+                    hasDevisPreview ? Icons.visibility_outlined : Icons.description_outlined,
+                    size: 18,
+                  ),
+                  label: Text(
+                    hasDevisPreview ? 'Voir le devis' : 'Générer le devis',
+                    style: const TextStyle(fontSize: 13),
                   ),
                 ),
               // Le bouton "Générer une facture" est masqué si une facture est déjà confirmée
               // On le masque si latestFacture existe (facture confirmée dans l'historique)
               if (latestDevis != null && latestFacture == null)
-                IconButton.filled(
+                FilledButton.icon(
                   onPressed: () async {
                     if (!hasFacturePreview) {
                       // Première fois : avertissement puis génération de l'aperçu facture
@@ -1104,24 +1110,35 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.receipt_long),
-                  tooltip: 'Générer une facture à partir du devis courant',
-                  style: IconButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: Colors.orange[700],
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  icon: Icon(
+                    hasFacturePreview ? Icons.visibility_outlined : Icons.receipt_long,
+                    size: 18,
+                  ),
+                  label: Text(
+                    hasFacturePreview ? 'Voir la facture' : 'Générer la facture',
+                    style: const TextStyle(fontSize: 13),
                   ),
                 ),
               // Bouton "Voir les produits" : masqué si facture confirmée
               if (latestFacture == null)
-                IconButton.filled(
+                FilledButton.icon(
                   onPressed: () {
                     _openLinesEditor(context, cacheKey, products);
                   },
-                  icon: const Icon(Icons.table_chart),
-                  tooltip: 'Voir les produits',
-                  style: IconButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: Colors.grey[600],
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.table_chart, size: 18),
+                  label: const Text(
+                    'Voir les produits',
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
             ],
@@ -3851,6 +3868,7 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
   List<Map<String, dynamic>> _comments = [];
   final TextEditingController _commentController = TextEditingController();
   int? _currentUserId;
+  bool _showComments = false;
 
   @override
   void initState() {
@@ -3934,7 +3952,8 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
       final comments = await _apiService.getMediaComments(imageId);
       if (!mounted) return;
       setState(() {
-        _comments = comments;
+        // Afficher les commentaires du plus récent au plus ancien
+        _comments = comments.reversed.map((e) => Map<String, dynamic>.from(e)).toList();
         _loadingComments = false;
       });
     } catch (e) {
@@ -3967,7 +3986,8 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _comments = List<Map<String, dynamic>>.from(_comments)..add(comment);
+        // Insérer le nouveau commentaire en tête de liste (plus récent en premier)
+        _comments = [Map<String, dynamic>.from(comment), ..._comments];
         _sendingComment = false;
         _commentController.clear();
       });
@@ -4224,6 +4244,20 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: _showComments ? 'Masquer les commentaires' : 'Afficher les commentaires',
+            icon: Icon(
+              _showComments ? Icons.chat_bubble_outline : Icons.chat_bubble,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                _showComments = !_showComments;
+              });
+            },
+          ),
+        ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -4250,24 +4284,26 @@ class _MediaCarouselScreenState extends State<_MediaCarouselScreen> {
           );
 
           if (constraints.maxWidth > 700) {
-            // Grand écran : image à gauche, commentaires à droite
+            // Grand écran : image à gauche, commentaires à droite (collapsables)
             return Row(
               children: [
                 Expanded(child: pageView),
-                SizedBox(
-                  width: 320,
-                  child: _buildCommentsPanel(),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: _showComments ? 320 : 0,
+                  child: _showComments ? _buildCommentsPanel() : const SizedBox.shrink(),
                 ),
               ],
             );
           } else {
-            // Mobile : image en haut, commentaires en bas
+            // Mobile : image en haut, commentaires en bas (collapsables)
             return Column(
               children: [
                 Expanded(child: pageView),
-                SizedBox(
-                  height: 260,
-                  child: _buildCommentsPanel(),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: _showComments ? 260 : 0,
+                  child: _showComments ? _buildCommentsPanel() : const SizedBox.shrink(),
                 ),
               ],
             );
