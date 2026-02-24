@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../models/client.dart';
+import '../services/api_service.dart';
 
 class ClientDetailScreen extends StatefulWidget {
   final Client client;
@@ -13,11 +14,46 @@ class ClientDetailScreen extends StatefulWidget {
 }
 
 class _ClientDetailScreenState extends State<ClientDetailScreen> {
+  final ApiService _apiService = ApiService();
+  Client? _client;
+  bool _isLoading = false;
+  String? _error;
+
   int _selectedTab = 0; // 0 = Suivis, 1 = Événements
 
   @override
+  void initState() {
+    super.initState();
+    // On part des données de la liste, puis on charge les détails complets (suivis + events)
+    _client = widget.client;
+    _loadClientDetails();
+  }
+
+  Future<void> _loadClientDetails() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final fullClient = await _apiService.getClient(widget.client.id);
+      if (!mounted) return;
+      setState(() {
+        _client = fullClient;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final client = widget.client;
+    final client = _client ?? widget.client;
     
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -37,6 +73,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            if (_isLoading)
+              const LinearProgressIndicator(minHeight: 2),
+
             // En-tête avec avatar et statut
             _buildHeader(context),
             
@@ -61,7 +100,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final client = widget.client;
+    final client = _client ?? widget.client;
     
     return Container(
       width: double.infinity,
@@ -153,7 +192,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Widget _buildStatsSection() {
-    final client = widget.client;
+    final client = _client ?? widget.client;
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -205,7 +244,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Widget _buildContactSection() {
-    final client = widget.client;
+    final client = _client ?? widget.client;
     
     if (client.email == null && client.telephone == null && 
         client.adresse == null && client.ville == null) {
@@ -251,7 +290,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Widget _buildActivitiesSection() {
-    final client = widget.client;
+    final client = _client;
+    if (client == null) {
+      return const SizedBox.shrink();
+    }
+
     final suivisCount = client.suivis?.length ?? 0;
     final eventsCount = client.events?.length ?? 0;
     
@@ -326,7 +369,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Widget _buildSuivisList() {
-    final client = widget.client;
+    final client = _client ?? widget.client;
     
     if (client.suivis == null || client.suivis!.isEmpty) {
       return const Center(
@@ -356,7 +399,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Widget _buildEventsList() {
-    final client = widget.client;
+    final client = _client ?? widget.client;
     
     if (client.events == null || client.events!.isEmpty) {
       return const Center(

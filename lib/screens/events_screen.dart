@@ -22,6 +22,9 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  String _sortField = 'created_at';
+  String _sortDirection = 'desc';
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +69,8 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       final eventsData = await _apiService.getEvents(
         tab: _currentTab,
         search: _searchQuery,
+        sortField: _sortField,
+        sortDirection: _sortDirection,
       );
 
       setState(() {
@@ -98,6 +103,51 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Événements', style: AppTheme.heading2),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                switch (value) {
+                  case 'name_asc':
+                    _sortField = 'name';
+                    _sortDirection = 'asc';
+                    break;
+                  case 'name_desc':
+                    _sortField = 'name';
+                    _sortDirection = 'desc';
+                    break;
+                  case 'created_asc':
+                    _sortField = 'created_at';
+                    _sortDirection = 'asc';
+                    break;
+                  case 'created_desc':
+                    _sortField = 'created_at';
+                    _sortDirection = 'desc';
+                    break;
+                }
+              });
+              _loadEvents();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'name_asc',
+                child: Text('Nom A → Z'),
+              ),
+              PopupMenuItem(
+                value: 'name_desc',
+                child: Text('Nom Z → A'),
+              ),
+              PopupMenuItem(
+                value: 'created_desc',
+                child: Text('Création (récents en premier)'),
+              ),
+              PopupMenuItem(
+                value: 'created_asc',
+                child: Text('Création (anciens en premier)'),
+              ),
+            ],
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppTheme.accentBlue,

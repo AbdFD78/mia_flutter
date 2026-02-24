@@ -589,14 +589,23 @@ class ApiService {
   }
 
   /// Récupérer la liste des événements
-  Future<List<Map<String, dynamic>>> getEvents({String tab = 'events', String search = ''}) async {
+  Future<List<Map<String, dynamic>>> getEvents({
+    String tab = 'events',
+    String search = '',
+    String sortField = 'created_at',
+    String sortDirection = 'desc',
+  }) async {
     try {
       final headers = await _getHeaders();
       
       print('📡 getEvents - Headers: $headers');
-      print('📡 getEvents - URL: $baseUrl/events?tab=$tab&search=$search');
+      print('📡 getEvents - URL: $baseUrl/events?tab=$tab&search=$search&sort_field=$sortField&sort_direction=$sortDirection');
       
-      var uri = Uri.parse('$baseUrl/events?tab=$tab&search=$search');
+      var uri = Uri.parse('$baseUrl/events'
+          '?tab=$tab'
+          '&search=$search'
+          '&sort_field=$sortField'
+          '&sort_direction=$sortDirection');
       
       final response = await http.get(
         uri,
