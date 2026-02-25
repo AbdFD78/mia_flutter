@@ -44,14 +44,6 @@ class AuthProvider with ChangeNotifier {
         if (isValid) {
           _user = await _authService.getCurrentUser();
           _status = AuthStatus.authenticated;
-          
-          // Enregistrer le device pour les notifications push si l'utilisateur est déjà connecté
-          try {
-            await PushNotificationService().registerDevice();
-          } catch (e) {
-            print('⚠️ Erreur lors de l\'enregistrement du device push: $e');
-            // Ne pas bloquer l'initialisation si l'enregistrement du device échoue
-          }
         } else {
           // Token invalide, déconnexion
           await _authService.clearAuthData();
@@ -91,14 +83,9 @@ class AuthProvider with ChangeNotifier {
         _status = AuthStatus.authenticated;
         notifyListeners();
         
-        // Enregistrer le device pour les notifications push après connexion réussie
-        try {
-          await PushNotificationService().registerDevice();
-        } catch (e) {
-          print('⚠️ Erreur lors de l\'enregistrement du device push: $e');
-          // Ne pas bloquer la connexion si l'enregistrement du device échoue
-        }
-        
+        // L'enregistrement du device pour les notifications push
+        // est maintenant contrôlé explicitement depuis l'écran Profil
+        // via le switch "Notifications push".
         return true;
       } else {
         _errorMessage = result['message'];
