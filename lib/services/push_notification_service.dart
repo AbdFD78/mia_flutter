@@ -205,24 +205,17 @@ class PushNotificationService {
       _fcmToken = await _messaging.getToken();
       if (_fcmToken != null) {
         print('📱 Token FCM obtenu: ${_fcmToken!.substring(0, 20)}...');
-        
-        // Enregistrer automatiquement le device si l'utilisateur est connecté
-        final isAuth = await _authService.isAuthenticated();
-        if (isAuth) {
-          await registerDevice();
-        }
       } else {
         print('⚠️ Token FCM null');
       }
       
-      // Écouter les changements de token
+      // Écouter les changements de token (sans réactiver automatiquement les notifications)
       _messaging.onTokenRefresh.listen((newToken) async {
         print('🔄 Token FCM rafraîchi: ${newToken.substring(0, 20)}...');
         _fcmToken = newToken;
-        final isAuth = await _authService.isAuthenticated();
-        if (isAuth) {
-          await registerDevice();
-        }
+        // Important : on ne rappelle PAS registerDevice() ici.
+        // Le device ne sera ré-enregistré que si l'utilisateur réactive
+        // explicitement les notifications depuis l'écran Profil.
       });
       
       return _fcmToken;
