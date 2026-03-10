@@ -136,6 +136,44 @@ class AuthService {
     }
   }
 
+  /// Récupérer l'utilisateur courant depuis l'API et mettre à jour le stockage local
+  Future<User?> fetchAndStoreCurrentUserFromApi() async {
+    try {
+      final token = await getToken();
+      if (token == null || token.isEmpty) {
+        return null;
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/user'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final data = jsonDecode(response.body);
+      if (data['success'] != true || data['data'] == null || data['data']['user'] == null) {
+        return null;
+      }
+
+      final userJson = data['data']['user'] as Map<String, dynamic>;
+      final user = User.fromJson(userJson);
+
+      await saveUser(user);
+      return user;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Erreur lors de la récupération de l\'utilisateur depuis l\'API: $e');
+      return null;
+    }
+  }
+
   /// Sauvegarder le token
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();

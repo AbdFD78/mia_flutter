@@ -42,7 +42,10 @@ class AuthProvider with ChangeNotifier {
         final isValid = await _authService.validateToken();
         
         if (isValid) {
-          _user = await _authService.getCurrentUser();
+          // Récupérer l'utilisateur depuis l'API pour s'assurer que
+          // les permissions et métadonnées sont à jour
+          _user = await _authService.fetchAndStoreCurrentUserFromApi() ??
+              await _authService.getCurrentUser();
           _status = AuthStatus.authenticated;
         } else {
           // Token invalide, déconnexion
