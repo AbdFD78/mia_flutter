@@ -18,69 +18,119 @@ class AppDrawer extends StatelessWidget {
           children: [
             // En-tête avec photo de profil et informations utilisateur
             _buildUserHeader(context),
-            
-            // Menu principal
+
+            // Menu principal (logique alignée sur la sidebar web via les permissions)
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.dashboard_outlined,
-                    title: 'Tableau de bord',
-                    route: '/dashboard',
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.account_circle_outlined,
-                    title: 'Mon Profil',
-                    route: '/profile',
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.business_center_outlined,
-                    title: 'Clients',
-                    route: '/clients',
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.group_outlined,
-                    title: 'Utilisateurs',
-                    route: '/users',
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.campaign_outlined,
-                    title: 'Campagnes',
-                    route: '/campagnes',
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.event_outlined,
-                    title: 'Liste des événements',
-                    route: '/events',
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.calendar_month_outlined,
-                    title: 'Calendrier',
-                    route: '/calendar',
-                  ),
-                  Consumer<AuthProvider>(
-                    builder: (context, authProvider, _) {
-                      final perms = authProvider.user?.permissions ?? const [];
-                      if (!perms.contains('ACCESS_SUIVIES_CLIENTS')) {
-                        return const SizedBox.shrink();
-                      }
-                      return _buildMenuItem(
+              child: Consumer<AuthProvider>(
+                builder: (context, authProvider, _) {
+                  final user = authProvider.user;
+                  final perms = user?.permissions ?? const [];
+
+                  final List<Widget> items = [];
+
+                  // Dashboard :
+                  // - Sur le web, le lien est dans le bloc profil et visible seulement pour le client "CLIENT0"
+                  // - Ici, on ajoute aussi un contrôle de permission explicite ACCESS_DASHBOARD
+                  if (user != null &&
+                      user.clientName == 'CLIENT0' &&
+                      perms.contains('ACCESS_DASHBOARD')) {
+                    items.add(
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.dashboard_outlined,
+                        title: 'Tableau de bord',
+                        route: '/dashboard',
+                      ),
+                    );
+                  }
+
+                  // Mon Profil (toujours visible, comme sur le web)
+                  items.add(
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.account_circle_outlined,
+                      title: 'Mon Profil',
+                      route: '/profile',
+                    ),
+                  );
+
+                  // CLIENTS -> section "CLIENT" sur le web, sous-lien "CLIENTS" (ACCESS_CLIENTS)
+                  if (perms.contains('ACCESS_CLIENTS')) {
+                    items.add(
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.business_center_outlined,
+                        title: 'Clients',
+                        route: '/clients',
+                      ),
+                    );
+                  }
+
+                  // UTILISATEURS -> section "UTILISATEURS", sous-lien "UTILISATEURS" (ACCESS_USERS)
+                  if (perms.contains('ACCESS_USERS')) {
+                    items.add(
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.group_outlined,
+                        title: 'Utilisateurs',
+                        route: '/users',
+                      ),
+                    );
+                  }
+
+                  // CAMPAGNES -> section "CAMPAGNE", sous-lien "MES CAMPAGNES" (ACCESS_CAMPAGNE)
+                  if (perms.contains('ACCESS_CAMPAGNE')) {
+                    items.add(
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.campaign_outlined,
+                        title: 'Campagnes',
+                        route: '/campagnes',
+                      ),
+                    );
+                  }
+
+                  // EVENEMENTS -> section "Evenements", sous-lien "EVENEMENTS" (ACCESS_EVENTS)
+                  if (perms.contains('ACCESS_EVENTS')) {
+                    items.add(
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.event_outlined,
+                        title: 'Liste des événements',
+                        route: '/events',
+                      ),
+                    );
+                  }
+
+                  // CALENDRIER -> section "Evenements", sous-lien "CALENDRIER" (ACCESS_EVENTS_CALENDAR)
+                  if (perms.contains('ACCESS_EVENTS_CALENDAR')) {
+                    items.add(
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.calendar_month_outlined,
+                        title: 'Calendrier',
+                        route: '/calendar',
+                      ),
+                    );
+                  }
+
+                  // SUIVIES CLIENTS -> section "Evenements", sous-lien "SUIVIES CLIENTS" (ACCESS_SUIVIES_CLIENTS)
+                  if (perms.contains('ACCESS_SUIVIES_CLIENTS')) {
+                    items.add(
+                      _buildMenuItem(
                         context,
                         icon: Icons.track_changes_outlined,
                         title: 'Suivies clients',
                         route: '/activities',
-                      );
-                    },
-                  ),
-                ],
+                      ),
+                    );
+                  }
+
+                  return ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: items,
+                  );
+                },
               ),
             ),
             

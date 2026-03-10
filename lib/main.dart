@@ -95,11 +95,18 @@ class _MyAppState extends State<MyApp> {
   }
 
   GoRouter _createRouter(AuthProvider authProvider) {
+    final user = authProvider.user;
+    final perms = user?.permissions ?? const [];
+    final bool canAccessDashboard = perms.contains('ACCESS_DASHBOARD');
+
     return GoRouter(
-      initialLocation: authProvider.isAuthenticated ? '/dashboard' : '/login',
+      initialLocation: authProvider.isAuthenticated
+          ? (canAccessDashboard ? '/dashboard' : '/profile')
+          : '/login',
       redirect: (context, state) {
         final isAuthenticated = authProvider.isAuthenticated;
         final isLoggingIn = state.matchedLocation == '/login';
+        final location = state.matchedLocation;
 
         // Si l'utilisateur n'est pas authentifié et n'est pas sur la page de login
         if (!isAuthenticated && !isLoggingIn) {
@@ -108,7 +115,12 @@ class _MyAppState extends State<MyApp> {
 
         // Si l'utilisateur est authentifié et essaie d'accéder à la page de login
         if (isAuthenticated && isLoggingIn) {
-          return '/dashboard';
+          return canAccessDashboard ? '/dashboard' : '/profile';
+        }
+
+        // Empêcher l'accès direct au dashboard si l'utilisateur n'a pas la permission
+        if (isAuthenticated && location == '/dashboard' && !canAccessDashboard) {
+          return '/profile';
         }
 
         // Pas de redirection nécessaire
