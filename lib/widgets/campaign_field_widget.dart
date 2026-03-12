@@ -1170,6 +1170,10 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         data['latest_facture'] is Map<String, dynamic>
             ? data['latest_facture'] as Map<String, dynamic>
             : null;
+    final String? latestPennylaneUrl =
+        latestFacture != null && latestFacture['pennylane_public_file_url'] is String
+            ? latestFacture['pennylane_public_file_url'] as String
+            : null;
 
     final List<Map<String, dynamic>> devisHistory =
         (data['devis_history'] as List<dynamic>? ?? [])
@@ -1279,6 +1283,22 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                       // Première fois : avertissement puis génération de l'aperçu facture
                       final confirmed = await _confirmGenerateFacture(context);
                       if (confirmed == true) {
+                        // Validation minimale côté mobile : s'assurer qu'il y a au moins une ligne
+                        // et que quantité > 0, prix unitaire et TVA sont renseignés.
+                        final valid = _validateProductLines(
+                            _newDocLinesCache[cacheKey] ?? products);
+                        if (!valid) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Certaines lignes produits sont incomplètes (quantité > 0, prix unitaire et TVA obligatoires).',
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                        }
                         await _apiService.generateNewDocFacturePreview(
                           campagneId: widget.campaignId,
                           tabTag: widget.tabTag,
@@ -1332,7 +1352,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
           ),
           const SizedBox(height: 16),
 
-          // Si facture confirmée : bouton "Envoyer par mail" centré + boutons "Voir le devis / Voir la facture"
+          // Si facture confirmée : bouton "Envoyer par mail" centré + boutons "Voir le devis / Voir la facture" (+ Pennylane)
           if (latestDevis != null && latestFacture != null) ...[
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1340,7 +1360,8 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _openSendEmailDialog(context),
+                    onPressed: () =>
+                        _openSendEmailDialog(context, latestFacture),
                     icon: const Icon(Icons.email_outlined),
                     label: const Text('Envoyer par mail'),
                     style: ElevatedButton.styleFrom(
@@ -1351,42 +1372,69 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                // Disposition des boutons de consultation :
+                // - première ligne : "Voir le devis" et "Voir la facture" côte à côte
+                // - deuxième ligne pleine largeur (si disponible) : "Facture Pennylane"
+                Column(
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openPdf(
-                          context,
-                          latestDevis['pdf_url'] as String,
-                          'Devis ${latestDevis['num_devis'] ?? ''}',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _openPdf(
+                              context,
+                              latestDevis['pdf_url'] as String,
+                              'Devis ${latestDevis['num_devis'] ?? ''}',
+                            ),
+                            icon: const Icon(Icons.description_outlined),
+                            label: const Text('Voir le devis'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
                         ),
-                        icon: const Icon(Icons.description_outlined),
-                        label: const Text('Voir le devis'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _openPdf(
+                              context,
+                              latestFacture['pdf_url'] as String,
+                              'Facture ${latestFacture['num_facture'] ?? ''}',
+                            ),
+                            icon: const Icon(Icons.receipt_long),
+                            label: const Text('Voir la facture'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (latestPennylaneUrl != null &&
+                        latestPennylaneUrl.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _openPdf(
+                            context,
+                            latestPennylaneUrl,
+                            'Facture Pennylane ${latestFacture['num_facture'] ?? ''}',
+                          ),
+                          icon: const Icon(Icons.open_in_new),
+                          label: const Text('Facture Pennylane'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF006666),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openPdf(
-                          context,
-                          latestFacture['pdf_url'] as String,
-                          'Facture ${latestFacture['num_facture'] ?? ''}',
-                        ),
-                        icon: const Icon(Icons.receipt_long),
-                        label: const Text('Voir la facture'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ],
@@ -1479,7 +1527,10 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     );
   }
 
-  Future<void> _openSendEmailDialog(BuildContext context) async {
+  Future<void> _openSendEmailDialog(
+    BuildContext context,
+    Map<String, dynamic>? latestFacture,
+  ) async {
     final TextEditingController recipientController = TextEditingController(
       text: widget.clientEmail ?? '',
     );
@@ -1562,7 +1613,40 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: const Text(
-                              'Facture',
+                              'Facture (MIA)',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            value: 'facture_pennylane',
+                            groupValue: documentType,
+                            onChanged: (val) {
+                              final hasPennylane =
+                                  latestFacture != null &&
+                                      latestFacture[
+                                              'pennylane_public_file_url']
+                                          is String &&
+                                      (latestFacture[
+                                                  'pennylane_public_file_url']
+                                              as String)
+                                          .isNotEmpty;
+                              if (!hasPennylane) return;
+                              if (val != null) {
+                                setState(() => documentType = val);
+                              }
+                            },
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Facture (Pennylane)',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               softWrap: false,
@@ -2890,6 +2974,43 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
         );
       },
     );
+  }
+
+  bool _validateProductLines(List<Map<String, dynamic>> lines) {
+    bool hasAtLeastOne = false;
+
+    for (final line in lines) {
+      final title = (line['title'] ?? '').toString().trim();
+      final desc = (line['description'] ?? '').toString().trim();
+      final qty = line['quantite'];
+      final price = line['prix_unitaire'];
+      final tva = line['tva'] ?? line['Tva'];
+
+      final isEmpty = title.isEmpty &&
+          desc.isEmpty &&
+          (qty == null || qty.toString().isEmpty) &&
+          (price == null || price.toString().isEmpty) &&
+          (tva == null || tva.toString().isEmpty);
+
+      if (isEmpty) {
+        continue;
+      }
+
+      hasAtLeastOne = true;
+
+      final qtyNum = num.tryParse(qty?.toString() ?? '');
+      final priceNum = num.tryParse(price?.toString() ?? '');
+
+      final qtyValid = qtyNum != null && qtyNum > 0;
+      final priceValid = priceNum != null;
+      final tvaValid = tva != null && tva.toString().isNotEmpty;
+
+      if (!qtyValid || !priceValid || !tvaValid) {
+        return false;
+      }
+    }
+
+    return hasAtLeastOne;
   }
 
   Future<void> _showFactureBrouillonMenu(

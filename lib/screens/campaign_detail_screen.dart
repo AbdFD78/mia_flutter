@@ -73,7 +73,7 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
         );
         _pageController = PageController(initialPage: targetIndex);
         
-        // Écouter les changements de tab pour mettre à jour l'UI
+        // Écouter les changements de tab pour mettre à jour l'UI (index / boutons)
         _tabController.addListener(() {
           if (mounted && !_tabController.indexIsChanging) {
             setState(() {});
@@ -190,10 +190,6 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen>
                               if (_tabController.index != index) {
                                 _tabController.animateTo(index);
                               }
-
-                              // Recharger les détails de la campagne lorsqu'on change d'onglet
-                              // pour récupérer les dernières valeurs saisies.
-                              _loadCampaignDetail();
                             },
                             itemBuilder: (context, index) {
                               final tab = _campaignDetail!.tabs[index];
