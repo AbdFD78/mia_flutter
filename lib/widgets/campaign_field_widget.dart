@@ -1352,8 +1352,8 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
           ),
           const SizedBox(height: 16),
 
-          // Si facture confirmée : bouton "Envoyer par mail" centré + boutons "Voir le devis / Voir la facture" (+ Pennylane)
-          if (latestDevis != null && latestFacture != null) ...[
+          // Si facture confirmée : bouton "Envoyer par mail" + bouton "Voir la facture" (Pennylane)
+          if (latestFacture != null) ...[
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1372,71 +1372,25 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Disposition des boutons de consultation :
-                // - première ligne : "Voir le devis" et "Voir la facture" côte à côte
-                // - deuxième ligne pleine largeur (si disponible) : "Facture Pennylane"
-                Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _openPdf(
-                              context,
-                              latestDevis['pdf_url'] as String,
-                              'Devis ${latestDevis['num_devis'] ?? ''}',
-                            ),
-                            icon: const Icon(Icons.description_outlined),
-                            label: const Text('Voir le devis'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _openPdf(
-                              context,
-                              latestFacture['pdf_url'] as String,
-                              'Facture ${latestFacture['num_facture'] ?? ''}',
-                            ),
-                            icon: const Icon(Icons.receipt_long),
-                            label: const Text('Voir la facture'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (latestPennylaneUrl != null &&
-                        latestPennylaneUrl.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _openPdf(
-                            context,
-                            latestPennylaneUrl,
-                            'Facture Pennylane ${latestFacture['num_facture'] ?? ''}',
-                          ),
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('Facture Pennylane'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF006666),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                        ),
+                if (latestPennylaneUrl != null &&
+                    latestPennylaneUrl.isNotEmpty)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _openPdf(
+                        context,
+                        latestPennylaneUrl,
+                        'Facture ${latestFacture['num_facture'] ?? ''}',
                       ),
-                    ],
-                  ],
-                ),
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('Voir la facture'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF006666),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -1536,7 +1490,7 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
     );
     final TextEditingController subjectController = TextEditingController();
     final TextEditingController messageController = TextEditingController();
-    String documentType = 'devis';
+    String documentType = 'facture_pennylane';
     final List<File> attachments = [];
 
     await showDialog(
@@ -1580,80 +1534,29 @@ class _CampaignFieldWidgetState extends State<CampaignFieldWidget> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<String>(
-                            value: 'devis',
-                            groupValue: documentType,
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => documentType = val);
-                              }
-                            },
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text(
-                              'Devis',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: RadioListTile<String>(
-                            value: 'facture',
-                            groupValue: documentType,
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() => documentType = val);
-                              }
-                            },
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text(
-                              'Facture (MIA)',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<String>(
-                            value: 'facture_pennylane',
-                            groupValue: documentType,
-                            onChanged: (val) {
-                              final hasPennylane =
-                                  latestFacture != null &&
-                                      latestFacture[
-                                              'pennylane_public_file_url']
-                                          is String &&
-                                      (latestFacture[
-                                                  'pennylane_public_file_url']
-                                              as String)
-                                          .isNotEmpty;
-                              if (!hasPennylane) return;
-                              if (val != null) {
-                                setState(() => documentType = val);
-                              }
-                            },
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text(
-                              'Facture (Pennylane)',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                            ),
-                          ),
-                        ),
-                      ],
+                    RadioListTile<String>(
+                      value: 'facture_pennylane',
+                      groupValue: documentType,
+                      onChanged: (val) {
+                        final hasPennylane = latestFacture != null &&
+                            latestFacture['pennylane_public_file_url']
+                                is String &&
+                            (latestFacture['pennylane_public_file_url']
+                                    as String)
+                                .isNotEmpty;
+                        if (!hasPennylane) return;
+                        if (val != null) {
+                          setState(() => documentType = val);
+                        }
+                      },
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Facture',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
